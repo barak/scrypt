@@ -1,0 +1,2 @@
+?package(scrypt):needs="text" section="Applications/File Management"\
+  title="scrypt" command="/usr/bin/scrypt"

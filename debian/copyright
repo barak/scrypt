@@ -1,0 +1,33 @@
+This work was packaged for Debian by:
+
+    Barak A. Pearlmutter <bap@debian.org> on Mon, 04 Apr 2011 10:39:18 +0100
+
+It was downloaded from:
+
+    http://www.tarsnap.com/scrypt/scrypt-1.1.6.tgz
+
+Upstream Author:
+
+    Colin Percival <cperciva@tarsnap.com>
+
+Copyright:
+
+    Copyright (C) 2009 Colin Percival
+
+License:
+
+    Stated in lib/README:
+
+    The source code under this directory is taken from the client for
+    the Tarsnap online backup system (and released under the 2-clause
+    BSD license with permission of the author)
+
+On Debian systems, the complete text of the 3-clause BSD License can
+be found in "/usr/share/common-licenses/BSD".  Here, clause number 3
+can be ignored.
+
+The Debian packaging is:
+
+    Copyright (C) 2011 Barak A. Pearlmutter <bap@debian.org>
+
+and is licensed under the same terms as scrypt, above.

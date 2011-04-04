@@ -1,0 +1,21 @@
+Source: scrypt
+Section: utils
+Priority: optional
+Maintainer: Barak A. Pearlmutter <bap@debian.org>
+Build-Depends: debhelper (>= 8), autotools-dev (>= 20100122.1~)
+Standards-Version: 3.9.1
+Homepage: http://www.tarsnap.com/scrypt.html
+Vcs-Git: git://git.debian.org/collab-maint/scrypt.git
+Vcs-Browser: http://git.debian.org/?p=collab-maint/scrypt.git;a=summary
+
+Package: scrypt
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: File encryption utility using scrypt for key derivation
+ A simple password-based encryption utility which demonstrates the
+ scrypt key derivation function.  On modern hardware and with default
+ parameters, the cost of cracking the password on a file encrypted by
+ scrypt enc is approximately 100 billion times more than the cost of
+ cracking the same password on a file encrypted by openssl enc; this
+ means that a five-character password using scrypt is stronger than a
+ ten-character password using openssl.

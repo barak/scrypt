@@ -1,0 +1,5 @@
+scrypt (1.1.6-1) unstable; urgency=low
+
+  * Initial release (Closes: #620806)
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 04 Apr 2011 10:39:18 +0100
