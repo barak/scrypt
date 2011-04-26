@@ -1,3 +1,9 @@
+scrypt (1.1.6-2) unstable; urgency=low
+
+  * Add build dependency on libssl-dev (closes: #624132)
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Tue, 26 Apr 2011 12:15:52 +0100
+
 scrypt (1.1.6-1) unstable; urgency=low
 
   * Initial release (Closes: #620806)
