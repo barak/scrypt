@@ -1,3 +1,10 @@
+scrypt (1.1.6-3.1) UNRELEASED; urgency=low
+
+  * Non-maintainer upload.
+  * Add -dev package (Closes: #710440)
+
+ -- Micah Anderson <micah@debian.org>  Thu, 30 May 2013 16:13:13 -0400
+
 scrypt (1.1.6-3) unstable; urgency=low
 
   * dh9

@@ -19,3 +19,18 @@ Description: File encryption utility using scrypt for key derivation
  cracking the same password on a file encrypted by openssl enc; this
  means that a five-character password using scrypt is stronger than a
  ten-character password using openssl.
+
+Package: scrypt-dev
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: File encryption utility using scrypt for key derivation
+ This package contains the headers and the static library for
+ scrypt.
+ .
+ A simple password-based encryption utility which demonstrates the
+ scrypt key derivation function.  On modern hardware and with default
+ parameters, the cost of cracking the password on a file encrypted by
+ scrypt enc is approximately 100 billion times more than the cost of
+ cracking the same password on a file encrypted by openssl enc; this
+ means that a five-character password using scrypt is stronger than a
+ ten-character password using openssl.
