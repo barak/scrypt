@@ -23,8 +23,8 @@ Description: File encryption utility using scrypt for key derivation
 Package: scrypt-dev
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: File encryption utility using scrypt for key derivation
- This package contains the headers and the static library for
+Description: Encryption key derivation function scrypt
+ This package contains the headers (and the static library, not) for
  scrypt.
  .
  A simple password-based encryption utility which demonstrates the
