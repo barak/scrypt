@@ -1,9 +1,13 @@
-scrypt (1.1.6-3.1) UNRELEASED; urgency=low
+scrypt (1.1.6-4) unstable; urgency=low
 
-  * Non-maintainer upload.
+  [ Micah Anderson ]
   * Add -dev package (Closes: #710440)
 
- -- Micah Anderson <micah@debian.org>  Thu, 30 May 2013 16:13:13 -0400
+  [ Barak A. Pearlmutter ]
+  * Add -dev package, chapter two
+  * log changes
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 03 Jun 2013 07:53:17 -0400
 
 scrypt (1.1.6-3) unstable; urgency=low
 
