@@ -1,0 +1,29 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Fri, 11 Apr 2014 15:14:39 +0100
+Subject: configure.ac clock_gettime
+
+Instead of always including -lrt when linking with it provides
+clock_gettime, only link to it when clock_gettime is not available
+without -lrt.  This is the recommended procedure.  To quote the
+autoconf 2.69 info pages:
+
+     'AC_CHECK_LIB' requires some care ... it is normally better to
+     use 'AC_SEARCH_LIBS([gethostbyname], [nsl])' instead of
+     'AC_CHECK_LIB([nsl], [gethostbyname])'.
+---
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index a0130db..03bd9b4 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -14,7 +14,7 @@ AC_CHECK_DECLS([be64enc], [], [], [[#include <sys/endian.h>]])
+ AC_CHECK_HEADERS([err.h])
+ 
+ # Check for clock_gettime.  On some systems, this is provided via librt.
+-AC_CHECK_LIB(rt, clock_gettime)
++AC_SEARCH_LIBS([clock_gettime], [rt])
+ AC_CHECK_FUNCS([clock_gettime])
+ 
+ # Check for a linuxy sysinfo syscall; and while we're doing that, check if
