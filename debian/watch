@@ -1,6 +1,14 @@
 version=3
 http://www.tarsnap.com/scrypt.html scrypt/scrypt-(.*)\.tgz
 
+# Signature looks like:
+#  scrypt/scrypt-sigs-1.1.6.asc
+# so should use:
+#  opts="pgpsigurlmangle=s/\-(.*)\.tgz/-sigs-\\1.asc/"
+# but ... that contains a signed armoured message containing an
+# SHA256 hash of the tarball, intead of a detached PGP signature,
+# so uscan fails to verify it anyway.
+
 # Since roughly 2009 there have been no more release tarballs.
 # However maintenance has moved to a publically-accessible
 # repository:
