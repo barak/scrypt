@@ -1,3 +1,18 @@
+scrypt (1.1.6+svn18-1) unstable; urgency=medium
+
+  * add pointer to upstream SVN repository, and discussion thereof
+  * take upstream release from upstream SVN repository
+  * patches:
+    - avoid unnecessary -lrt
+    - tweak autotools to build without manual intervention
+  * switch from autotools-dev to dh-autoreconf
+  * bump policy version
+  * use canonical urls for packaging repository
+  * enable sse2 when arch=amd64
+  * include upstream tarball signing key (currently not checked)
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Fri, 11 Apr 2014 15:47:15 +0100
+
 scrypt (1.1.6-3) unstable; urgency=low
 
   * dh9
