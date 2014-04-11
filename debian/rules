@@ -4,6 +4,13 @@
 %:
 	dh $@ --with autoreconf --parallel
 
+# The upstream Makefile in the tarball is not what you might expect,
+# and causes a syntax error (missing separator) in GNU make.
+
+override_dh_auto_clean:
+	-rm -f Makefile
+	dh_auto_clean
+
 # Enable SSE2 on amd64.
 
 # This would also work on *some* arch=i386 machines.  But the set of
