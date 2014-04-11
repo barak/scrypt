@@ -11,7 +11,7 @@ minimal patch.
  1 file changed, 1 insertion(+)
 
 diff --git a/configure.ac b/configure.ac
-index e090378..a0130db 100644
+index b9445a7..8f73c42 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -2,6 +2,7 @@ AC_INIT([scrypt],[1.1.6])
@@ -21,4 +21,4 @@ index e090378..a0130db 100644
 +m4_include([acscrypt.m4])
  AC_PROG_CC
  
- # Look for sys/endian.h and be64enc.  Old versions of NetBSD have
+ # Check for clock_gettime.  On some systems, this is provided via librt.

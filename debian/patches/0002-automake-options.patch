@@ -11,7 +11,7 @@ is good.
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index e630c72..cd4788e 100644
+index 6728d8b..706f2e8 100644
 --- a/Makefile.am
 +++ b/Makefile.am
 @@ -1,4 +1,4 @@

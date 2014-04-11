@@ -15,11 +15,11 @@ autoconf 2.69 info pages:
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/configure.ac b/configure.ac
-index a0130db..03bd9b4 100644
+index 8f73c42..0778ad2 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -14,7 +14,7 @@ AC_CHECK_DECLS([be64enc], [], [], [[#include <sys/endian.h>]])
- AC_CHECK_HEADERS([err.h])
+@@ -6,7 +6,7 @@ m4_include([acscrypt.m4])
+ AC_PROG_CC
  
  # Check for clock_gettime.  On some systems, this is provided via librt.
 -AC_CHECK_LIB(rt, clock_gettime)
