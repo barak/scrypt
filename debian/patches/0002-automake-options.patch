@@ -1,0 +1,22 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Fri, 11 Apr 2014 09:24:33 +0100
+Subject: automake options
+
+Add two automake options.  The first, subdir-objects, is to avoid
+zillions of warnings concerning refering to source files in
+subdirectories.  The second, -Wall, has no discernible effect, which
+is good.
+---
+ Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index e630c72..cd4788e 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1,4 +1,4 @@
+-AUTOMAKE_OPTIONS=	foreign
++AUTOMAKE_OPTIONS=	foreign subdir-objects -Wall
+ 
+ bin_PROGRAMS=	scrypt
+ dist_man_MANS=$(scrypt_man_MANS)
