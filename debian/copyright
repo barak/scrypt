@@ -1,35 +1,38 @@
-This work was packaged for Debian by:
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: scrypt
+Source: http://www.tarsnap.com/scrypt
+	http://www.tarsnap.com/scrypt/scrypt-1.1.6.tgz
+	https://code.google.com/p/scrypt/source/browse
 
-    Barak A. Pearlmutter <bap@debian.org> on Mon, 04 Apr 2011 10:39:18 +0100
+Files: *
+Copyright: 2009-2013: Colin Percival <cperciva@tarsnap.com>
+License: BSD-2CLAUSE
 
-It was downloaded from:
+Files: debian/*
+Copyright: 2011-2014 Barak A. Pearlmutter <bap@debian.org>
+License: Public-Domain
+ This material is hereby released to the public domain.
 
-    http://www.tarsnap.com/scrypt/scrypt-1.1.6.tgz
-    with more recent versions from the SVN repository
-    https://code.google.com/p/scrypt/source/browse
-
-Upstream Author:
-
-    Colin Percival <cperciva@tarsnap.com>
-
-Copyright:
-
-    Copyright (C) 2009 Colin Percival
-
-License:
-
-    Stated in lib/README:
-
-    The source code under this directory is taken from the client for
-    the Tarsnap online backup system (and released under the 2-clause
-    BSD license with permission of the author)
-
-On Debian systems, the complete text of the 3-clause BSD License can
-be found in "/usr/share/common-licenses/BSD".  Here, clause number 3
-can be ignored.
-
-The Debian packaging is:
-
-    Copyright (C) 2011 Barak A. Pearlmutter <bap@debian.org>
-
-and is licensed under the same terms as scrypt, above.
+License: BSD-2CLAUSE
+ All rights reserved.
+ .
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
