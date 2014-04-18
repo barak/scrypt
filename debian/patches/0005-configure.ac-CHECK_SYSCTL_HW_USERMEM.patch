@@ -1,0 +1,45 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Fri, 18 Apr 2014 23:48:04 +0100
+Subject: configure.ac CHECK_SYSCTL_HW_USERMEM
+
+acscrypt.m4 contains the macro CHECK_SYSCTL_HW_USERMEM.  Move this
+to m4/check_sysctl_hw_usermem.m4 so it can be found automatically
+by autoconf.  The alternative would be to explicitly include acscrypt.m4
+from configure.ac.
+---
+ acscrypt.m4                   | 9 ---------
+ m4/check_sysctl_hw_usermem.m4 | 9 +++++++++
+ 2 files changed, 9 insertions(+), 9 deletions(-)
+ delete mode 100644 acscrypt.m4
+ create mode 100644 m4/check_sysctl_hw_usermem.m4
+
+diff --git a/acscrypt.m4 b/acscrypt.m4
+deleted file mode 100644
+index f10cfe1..0000000
+--- a/acscrypt.m4
++++ /dev/null
+@@ -1,9 +0,0 @@
+-# CHECK_SYSCTL_HW_USERMEM
+-# -----------------------
+-AC_DEFUN([CHECK_SYSCTL_HW_USERMEM],
+-[if sysctl hw.usermem >/dev/null 2>/dev/null; then
+-	AC_DEFINE([HAVE_SYSCTL_HW_USERMEM], [1],
+-	    [Define to 1 if the OS has a hw.usermem sysctl])
+-fi
+-AC_SUBST([HAVE_SYSCTL_HW_USERMEM])
+-])# CHECK_SYSCTL_HW_USERMEM
+diff --git a/m4/check_sysctl_hw_usermem.m4 b/m4/check_sysctl_hw_usermem.m4
+new file mode 100644
+index 0000000..f10cfe1
+--- /dev/null
++++ b/m4/check_sysctl_hw_usermem.m4
+@@ -0,0 +1,9 @@
++# CHECK_SYSCTL_HW_USERMEM
++# -----------------------
++AC_DEFUN([CHECK_SYSCTL_HW_USERMEM],
++[if sysctl hw.usermem >/dev/null 2>/dev/null; then
++	AC_DEFINE([HAVE_SYSCTL_HW_USERMEM], [1],
++	    [Define to 1 if the OS has a hw.usermem sysctl])
++fi
++AC_SUBST([HAVE_SYSCTL_HW_USERMEM])
++])# CHECK_SYSCTL_HW_USERMEM

@@ -1,4 +1,5 @@
 0001-configure.ac-version.patch
 0002-automake-options.patch
-0003-configure.ac-include-acscrypt.m4.patch
-0004-configure.ac-clock_gettime.patch
+0003-configure.ac-clock_gettime.patch
+0004-configure.ac-updates.patch
+0005-configure.ac-CHECK_SYSCTL_HW_USERMEM.patch

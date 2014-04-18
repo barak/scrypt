@@ -15,10 +15,10 @@ autoconf 2.69 info pages:
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/configure.ac b/configure.ac
-index 8f73c42..0778ad2 100644
+index b9445a7..5811c1f 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -6,7 +6,7 @@ m4_include([acscrypt.m4])
+@@ -5,7 +5,7 @@ AM_MAINTAINER_MODE
  AC_PROG_CC
  
  # Check for clock_gettime.  On some systems, this is provided via librt.
