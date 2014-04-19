@@ -21,7 +21,9 @@ override_dh_auto_clean:
 # benefit of just turning on SSE2.  So to keep things simple and
 # robust, we enable SSE2 only on amd64.
 
-configure_flags := $(shell dpkg-architecture -eamd64 && echo --enable-sse2 || :)
+configure_flags := \
+ $(shell dpkg-architecture -eamd64 && echo --enable-sse2 || :) \
+ $(shell dpkg-architecture -ei386 && echo --disable-sse2 || :)
 
 override_dh_auto_configure:
 	dh_auto_configure -- $(configure_flags)
