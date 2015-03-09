@@ -1,0 +1,34 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Mon, 9 Mar 2015 15:32:45 +0000
+Subject: crypt search
+
+Search for -lcrypto in configure.ac instead of hardwiring it in Makefile.am
+---
+ Makefile.am  | 1 -
+ configure.ac | 3 +++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 964ac2b..f5417dd 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -13,5 +13,4 @@ scrypt_SOURCES=		main.c				\
+ scrypt_CFLAGS=		-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
+ 			-I $(srcdir)/lib/crypto -I $(srcdir)/libcperciva/alg \
+ 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util
+-scrypt_LDADD=		-lcrypto
+ scrypt_man_MANS=	scrypt.1
+diff --git a/configure.ac b/configure.ac
+index 30076c6..534e00f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -9,6 +9,9 @@ AC_PROG_CC
+ AC_SEARCH_LIBS([clock_gettime], [rt])
+ AC_CHECK_FUNCS([clock_gettime])
+ 
++AC_SEARCH_LIBS([AES_encrypt], [crypto],,
++    AC_MSG_ERROR([function AES_ENCRYPT not found]))
++
+ # Check for a linuxy sysinfo syscall; and while we're doing that, check if
+ # struct sysinfo is the old version (total RAM == totalmem) or the new
+ # version (total RAM == totalmem * mem_unit).

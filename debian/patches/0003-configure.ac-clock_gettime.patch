@@ -15,7 +15,7 @@ autoconf 2.69 info pages:
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/configure.ac b/configure.ac
-index b9445a7..5811c1f 100644
+index ce307b9..0bb909e 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -5,7 +5,7 @@ AM_MAINTAINER_MODE
