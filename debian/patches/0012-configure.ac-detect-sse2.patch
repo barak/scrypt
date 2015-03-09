@@ -1,0 +1,43 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Sat, 19 Apr 2014 23:08:55 +0100
+Subject: configure.ac detect sse2
+
+---
+ configure.ac | 21 +++++++++++++++++----
+ 1 file changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 5ae102d..ffa2d74 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -35,13 +35,26 @@ AC_CHECK_HEADERS([sys/param.h])
+ # Check for posix_memalign
+ AC_CHECK_FUNCS([posix_memalign])
+ 
+-# Figure out whether we want to use the SSE version of the scrypt code or not.
++# Figure out whether to use the SSE version of the scrypt code.
+ AC_ARG_ENABLE([sse2],
+     [AS_HELP_STRING([--enable-sse2],
+-	[use optimized SSE2 code])],
+-    [],
+-    [enable_sse2=no])
++	[use optimized SSE2 code (yes/no/default)])],
++    [enable_sse2=${enableval}],
++    [enable_sse2=default])
++# Unless explicitly disabled, check if the current CPU supports SEE2.
++AS_IF([test x${enable_sse2} = xyes || test x${enable_sse2} = xdefault],
++     [AX_EXT])
++# If SSE2 requested but unavailable, fail with a cogent error.
++AS_IF([test x${enable_sse2} = xyes && test x${ax_cv_support_sse2_ext} != xyes],
++    [AC_MSG_ERROR([SSE2 requested but unavailable])])
++# Engage default if appropriate.
++AS_IF([test x${enable_sse2} = xdefault],
++    [enable_sse2=${ax_cv_support_sse2_ext}])
++# Tell automake about the setting.
+ AM_CONDITIONAL([SSE2], [test "x$enable_sse2" = xyes])
++# Note AC_EXT sets SIMD_FLAGS, but Makefile.am does not use them.
++# We presume that the compiler's defaults are appropriate.
++# Could add an option to ask autotools to pass them.
+ 
+ AC_SYS_LARGEFILE
+ 

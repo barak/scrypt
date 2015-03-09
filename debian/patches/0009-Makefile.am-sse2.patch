@@ -1,0 +1,48 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Sat, 19 Apr 2014 09:20:50 +0100
+Subject: Makefile.am sse2
+
+Use automake conditional for enabling/disabling sse2.  This gets the right
+files into "make dist" and is more robust.  Basically, the approved
+mechanism.  It also slightly clarifies the sse2 option in configure.ac,
+which has to be tweaked to use AM_CONDITIONAL instead of AC_SUBST.
+---
+ Makefile.am  | 10 ++++++++--
+ configure.ac |  3 +--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 2459d3f..6c97247 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -8,8 +8,14 @@ scrypt_SOURCES=		main.c				\
+ 			lib/scryptenc/scryptenc.c	\
+ 			lib/scryptenc/scryptenc_cpuperf.c	\
+ 			libcperciva/crypto/crypto_aesctr.c	\
+-			libcperciva/alg/sha256.c		\
+-			lib/crypto/crypto_scrypt-@SCRYPTVER@.c
++			libcperciva/alg/sha256.c
++
++if SSE2
++scrypt_SOURCES += lib/crypto/crypto_scrypt-sse.c
++else
++scrypt_SOURCES += lib/crypto/crypto_scrypt-nosse.c
++endif
++
+ scrypt_CPPFLAGS=	-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
+ 			-I $(srcdir)/lib/crypto -I $(srcdir)/libcperciva/alg \
+ 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util
+diff --git a/configure.ac b/configure.ac
+index 5ea41e5..bdac0b0 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -37,8 +37,7 @@ AC_ARG_ENABLE([sse2],
+ 	[use optimized SSE2 code])],
+     [],
+     [enable_sse2=no])
+-AS_IF([test "x$enable_sse2" != xno], [SCRYPTVER=sse], [SCRYPTVER=nosse])
+-AC_SUBST([SCRYPTVER])
++AM_CONDITIONAL([SSE2], [test "x$enable_sse2" = xyes])
+ 
+ AC_SYS_LARGEFILE
+ 

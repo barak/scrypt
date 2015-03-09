@@ -3,6 +3,10 @@
 0003-configure.ac-clock_gettime.patch
 0004-configure.ac-updates.patch
 0005-configure.ac-CHECK_SYSCTL_HW_USERMEM.patch
-0006-crypt-search.patch
+0006-configure.ac-libcrypto.patch
 0007-automake-standards.patch
 0008-warnings.patch
+0009-Makefile.am-sse2.patch
+0010-Makefile.am-EXTRA_DIST.patch
+0011-configure.ac-standardize.patch
+0012-configure.ac-detect-sse2.patch

@@ -1,0 +1,19 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Mon, 9 Mar 2015 19:18:19 +0000
+Subject: Makefile.am EXTRA_DIST
+
+---
+ Makefile.am | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/Makefile.am b/Makefile.am
+index 6c97247..17bbbf8 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -20,3 +20,6 @@ scrypt_CPPFLAGS=	-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
+ 			-I $(srcdir)/lib/crypto -I $(srcdir)/libcperciva/alg \
+ 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util
+ scrypt_man_MANS=	scrypt.1
++
++EXTRA_DIST = BSDmakefile FORMAT lib/README libcperciva/COPYRIGHT	\
++ lib/crypto/crypto_scrypt-ref.c

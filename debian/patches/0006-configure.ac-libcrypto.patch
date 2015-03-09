@@ -1,8 +1,9 @@
 From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
 Date: Mon, 9 Mar 2015 15:32:45 +0000
-Subject: crypt search
+Subject: configure.ac libcrypto
 
-Search for -lcrypto in configure.ac instead of hardwiring it in Makefile.am
+Search for -lcrypto in configure.ac instead of hardwiring it in
+Makefile.am, and test that it provides AES_encrypt().
 ---
  Makefile.am  | 1 -
  configure.ac | 3 +++
