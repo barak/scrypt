@@ -5,3 +5,4 @@
 0005-configure.ac-CHECK_SYSCTL_HW_USERMEM.patch
 0006-crypt-search.patch
 0007-automake-standards.patch
+0008-warnings.patch

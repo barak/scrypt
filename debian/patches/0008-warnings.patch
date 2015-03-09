@@ -1,0 +1,22 @@
+From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
+Date: Mon, 9 Mar 2015 16:44:51 +0000
+Subject: warnings
+
+enable compiler warnings
+---
+ configure.ac | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/configure.ac b/configure.ac
+index 534e00f..5ea41e5 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -42,6 +42,8 @@ AC_SUBST([SCRYPTVER])
+ 
+ AC_SYS_LARGEFILE
+ 
++AX_CFLAGS_WARN_ALL
++
+ AC_CONFIG_HEADERS([config.h])
+ AC_CONFIG_FILES([Makefile])
+ AC_OUTPUT
