@@ -11,6 +11,8 @@ scrypt (1.2.0-1) unstable; urgency=medium
     - remove now-obsolete SSE configuration options
     - adjustments for autoreconf
     - upstream no longer distributes a top-level Makefile
+  * the SVN repository is dated and hosted by a now-read-only provider
+    (google code) so we took the upstream tarball and flush SVN
 
  -- Barak A. Pearlmutter <bap@debian.org>  Thu, 27 Aug 2015 09:55:28 +0100
 
