@@ -1,5 +1,5 @@
-From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
-Date: Fri, 11 Apr 2014 09:23:31 +0100
+From: "Barak A. Pearlmutter" <barak+git@pearlmutter.net>
+Date: Wed, 26 Aug 2015 13:17:17 +0100
 Subject: configure.ac version
 
 autoconf gets annoyed if configure.ac does not contain a literal
@@ -19,17 +19,17 @@ This patch passes a literal version number to AC_INIT.
 
 BE SURE TO UPDATE FOR A NEW UPSTREAM VERSION!
 ---
- configure.ac | 3 +--
+ autocrap/configure.ac | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/configure.ac b/configure.ac
-index 97f21ef..93822ad 100644
---- a/configure.ac
-+++ b/configure.ac
+diff --git a/autocrap/configure.ac b/autocrap/configure.ac
+index 24e03fd..f7f8b8a 100644
+--- a/autocrap/configure.ac
++++ b/autocrap/configure.ac
 @@ -1,5 +1,4 @@
 -m4_define([SCRYPT_VERS],m4_include([scrypt-version]))
 -AC_INIT([scrypt],SCRYPT_VERS())
-+AC_INIT([scrypt],[1.1.6])
++AC_INIT([scrypt],[1.2.0])
  AC_CONFIG_AUX_DIR([config.aux])
  AM_INIT_AUTOMAKE()
- AM_MAINTAINER_MODE
+ AC_PROG_CC

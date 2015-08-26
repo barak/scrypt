@@ -1,5 +1,5 @@
-From: "Barak A. Pearlmutter" <barak+git@cs.nuim.ie>
-Date: Fri, 11 Apr 2014 15:14:39 +0100
+From: "Barak A. Pearlmutter" <barak+git@pearlmutter.net>
+Date: Wed, 26 Aug 2015 13:30:08 +0100
 Subject: configure.ac clock_gettime
 
 Instead of always including -lrt when linking with it provides
@@ -11,15 +11,15 @@ autoconf 2.69 info pages:
      use 'AC_SEARCH_LIBS([gethostbyname], [nsl])' instead of
      'AC_CHECK_LIB([nsl], [gethostbyname])'.
 ---
- configure.ac | 2 +-
+ autocrap/configure.ac | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/configure.ac b/configure.ac
-index c2306bd..cf590ec 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -6,7 +6,7 @@ AC_PROG_CC
- AC_PROG_RANLIB
+diff --git a/autocrap/configure.ac b/autocrap/configure.ac
+index 575a20f..e9e9f7b 100644
+--- a/autocrap/configure.ac
++++ b/autocrap/configure.ac
+@@ -7,7 +7,7 @@ AM_PROG_AR
+ 
  
  # Check for clock_gettime.  On some systems, this is provided via librt.
 -AC_CHECK_LIB(rt, clock_gettime)

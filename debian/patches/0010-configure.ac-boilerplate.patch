@@ -1,0 +1,30 @@
+From: "Barak A. Pearlmutter" <barak+git@pearlmutter.net>
+Date: Wed, 26 Aug 2015 13:35:28 +0100
+Subject: configure.ac boilerplate
+
+Add comments and boilerplate version check to configure.ac
+---
+ autocrap/configure.ac | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/autocrap/configure.ac b/autocrap/configure.ac
+index a9119fe..f82a7ca 100644
+--- a/autocrap/configure.ac
++++ b/autocrap/configure.ac
+@@ -1,10 +1,16 @@
++AC_PREREQ([2.69])
+ AC_INIT([scrypt],[1.2.0])
++AC_CONFIG_SRCDIR([lib/scryptenc/scryptenc.c])
+ AC_CONFIG_AUX_DIR([config.aux])
++AC_CONFIG_MACRO_DIR([m4])
+ AM_INIT_AUTOMAKE([foreign subdir-objects -Wall])
++
++# Checks for programs.
+ AC_PROG_CC
+ AC_PROG_RANLIB
+ AM_PROG_AR
+ 
++# Checks for libraries.
+ 
+ # Check for clock_gettime.  On some systems, this is provided via librt.
+ AC_SEARCH_LIBS([clock_gettime], [rt])

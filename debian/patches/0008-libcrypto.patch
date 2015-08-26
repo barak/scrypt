@@ -1,0 +1,40 @@
+From: "Barak A. Pearlmutter" <barak+git@pearlmutter.net>
+Date: Wed, 26 Aug 2015 13:33:25 +0100
+Subject: libcrypto
+
+Search for -lcrypto in configure.ac instead of hardwiring it in
+Makefile.am, and test that it provides AES_encrypt().  This migration
+assures that it is only linked in if necessary---which it always is on
+current systems, but ...
+---
+ autocrap/Makefile.am  | 2 +-
+ autocrap/configure.ac | 3 +++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/autocrap/Makefile.am b/autocrap/Makefile.am
+index 6f09b9c..8b3c271 100644
+--- a/autocrap/Makefile.am
++++ b/autocrap/Makefile.am
+@@ -26,7 +26,7 @@ AM_CPPFLAGS=		-I $(srcdir)/libcperciva/alg		\
+ 			-I $(srcdir)/lib/scryptenc 		\
+ 			-I $(srcdir)/lib/util			\
+ 			-I . -D CPUSUPPORT_CONFIG_FILE=\"cpusupport-config.h\"
+-scrypt_LDADD=		-lcrypto libcperciva_aesni.a libscrypt_sse2.a
++scrypt_LDADD=		libcperciva_aesni.a libscrypt_sse2.a
+ scrypt_man_MANS=	scrypt.1
+ 
+ cpusupport-config.h:
+diff --git a/autocrap/configure.ac b/autocrap/configure.ac
+index e9e9f7b..6d6db11 100644
+--- a/autocrap/configure.ac
++++ b/autocrap/configure.ac
+@@ -10,6 +10,9 @@ AM_PROG_AR
+ AC_SEARCH_LIBS([clock_gettime], [rt])
+ AC_CHECK_FUNCS([clock_gettime])
+ 
++AC_SEARCH_LIBS([AES_encrypt], [crypto],,
++    AC_MSG_ERROR([function AES_ENCRYPT not found]))
++
+ # Check for a linuxy sysinfo syscall; and while we're doing that, check if
+ # struct sysinfo is the old version (total RAM == totalmem) or the new
+ # version (total RAM == totalmem * mem_unit).
