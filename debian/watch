@@ -24,3 +24,9 @@ http://www.tarsnap.com/scrypt.html scrypt/scrypt-(.*)\.tgz
 # fixes that appear suitable for treatment as point releases.  For this
 # reason they will be packaged as version+svn.r, where r is the svn
 # commit number.
+
+# The above is dated: a tarball for release 1.2.0 was published in
+# 20015, and the SVN repository lives on google code which is now
+# read-only.
+
+# Upstream development is now git://github.com/Tarsnap/scrypt.git
