@@ -8,10 +8,10 @@ Add comments and boilerplate version check to configure.ac
  1 file changed, 4 insertions(+)
 
 diff --git a/configure.ac b/configure.ac
-index bdac0b0..5ae102d 100644
+index 8fc81c6..152163f 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -1,10 +1,14 @@
+@@ -1,11 +1,15 @@
 +AC_PREREQ([2.69])
  AC_INIT([scrypt],[1.1.6])
  AC_CONFIG_SRCDIR([lib/scryptenc/scryptenc.c])
@@ -21,6 +21,7 @@ index bdac0b0..5ae102d 100644
 +
 +# Checks for programs.
  AC_PROG_CC
+ AC_PROG_RANLIB
  
 +# Checks for libraries.
  # Check for clock_gettime.  On some systems, this is provided via librt.

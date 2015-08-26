@@ -8,15 +8,15 @@ The approved automake flag is _CPPFLAGS not _CFLAGS
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Makefile.am b/Makefile.am
-index f5417dd..2459d3f 100644
+index ecbebce..fe7d51a 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -10,7 +10,7 @@ scrypt_SOURCES=		main.c				\
- 			libcperciva/crypto/crypto_aesctr.c	\
- 			libcperciva/alg/sha256.c		\
- 			lib/crypto/crypto_scrypt-@SCRYPTVER@.c
+@@ -14,7 +14,7 @@ scrypt_SOURCES=		main.c				\
+ 			lib/crypto/crypto_scrypt-@SCRYPTVER@.c	\
+ 			libcperciva/cpusupport/cpusupport_x86_aesni.c \
+ 			cpusupport-config.h
 -scrypt_CFLAGS=		-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
 +scrypt_CPPFLAGS=	-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
  			-I $(srcdir)/lib/crypto -I $(srcdir)/libcperciva/alg \
- 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util
- scrypt_man_MANS=	scrypt.1
+ 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util \
+ 			-I $(srcdir)/libcperciva/cpusupport \

@@ -7,10 +7,10 @@ Subject: configure.ac detect sse2
  1 file changed, 17 insertions(+), 4 deletions(-)
 
 diff --git a/configure.ac b/configure.ac
-index 5ae102d..ffa2d74 100644
+index 152163f..b4820f6 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -35,13 +35,26 @@ AC_CHECK_HEADERS([sys/param.h])
+@@ -36,13 +36,26 @@ AC_CHECK_HEADERS([sys/param.h])
  # Check for posix_memalign
  AC_CHECK_FUNCS([posix_memalign])
  

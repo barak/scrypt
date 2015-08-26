@@ -5,25 +5,14 @@ Subject: configure.ac libcrypto
 Search for -lcrypto in configure.ac instead of hardwiring it in
 Makefile.am, and test that it provides AES_encrypt().
 ---
- Makefile.am  | 1 -
  configure.ac | 3 +++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+ 1 file changed, 3 insertions(+)
 
-diff --git a/Makefile.am b/Makefile.am
-index 964ac2b..f5417dd 100644
---- a/Makefile.am
-+++ b/Makefile.am
-@@ -13,5 +13,4 @@ scrypt_SOURCES=		main.c				\
- scrypt_CFLAGS=		-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
- 			-I $(srcdir)/lib/crypto -I $(srcdir)/libcperciva/alg \
- 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util
--scrypt_LDADD=		-lcrypto
- scrypt_man_MANS=	scrypt.1
 diff --git a/configure.ac b/configure.ac
-index 30076c6..534e00f 100644
+index 480a131..2c88538 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -9,6 +9,9 @@ AC_PROG_CC
+@@ -10,6 +10,9 @@ AC_PROG_RANLIB
  AC_SEARCH_LIBS([clock_gettime], [rt])
  AC_CHECK_FUNCS([clock_gettime])
  

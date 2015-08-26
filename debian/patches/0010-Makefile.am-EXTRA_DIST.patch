@@ -7,13 +7,13 @@ Subject: Makefile.am EXTRA_DIST
  1 file changed, 3 insertions(+)
 
 diff --git a/Makefile.am b/Makefile.am
-index 6c97247..17bbbf8 100644
+index 6e24d64..8ed4fe9 100644
 --- a/Makefile.am
 +++ b/Makefile.am
-@@ -20,3 +20,6 @@ scrypt_CPPFLAGS=	-I $(srcdir)/lib/util -I $(srcdir)/lib/scryptenc \
- 			-I $(srcdir)/lib/crypto -I $(srcdir)/libcperciva/alg \
- 			-I $(srcdir)/libcperciva/crypto	-I $(srcdir)/libcperciva/util
- scrypt_man_MANS=	scrypt.1
+@@ -36,3 +36,6 @@ noinst_LIBRARIES=	libcperciva_aesni.a
+ libcperciva_aesni_a_SOURCES=	libcperciva/crypto/crypto_aes_aesni.c
+ libcperciva_aesni_a_CFLAGS=	$(scrypt_CFLAGS)	\
+ 			`. cpusupport-config.h; echo $${CFLAGS_X86_AESNI}`
 +
 +EXTRA_DIST = BSDmakefile FORMAT lib/README libcperciva/COPYRIGHT	\
 + lib/crypto/crypto_scrypt-ref.c
