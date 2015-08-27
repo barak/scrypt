@@ -1,3 +1,19 @@
+scrypt (1.2.0-1) unstable; urgency=medium
+
+  * debian/source/local-options: single-debian-patch option
+  * debian/copyright: modernize
+  * debian/control:
+    - bump standards version, no changes required
+    - build depend on autoconf-archive for AX_CFLAGS_WARN_ALL quilt patch
+  * new upstream version
+  * forward port, simplify, and refactor quilt patches
+  * debian/rules:
+    - remove now-obsolete SSE configuration options
+    - adjustments for autoreconf
+    - upstream no longer distributes a top-level Makefile
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Thu, 27 Aug 2015 09:55:28 +0100
+
 scrypt (1.1.6+svn31-1) unstable; urgency=medium
 
   * add pointer to upstream SVN repository, and discussion thereof
