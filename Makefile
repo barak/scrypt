@@ -14,11 +14,14 @@ CLEANFILES	+=	crypto_scrypt-sse.o
 CLEANFILES	+=	crypto_scrypt-nosse.o
 
 .PATH.c	:	lib/util
-SRCS	+=	memlimit.c readpass.c warn.c
-CFLAGS	+=	-I lib/util
+.PATH.c	:	libcperciva/util
+SRCS	+=	memlimit.c readpass.c warnp.c
+CFLAGS	+=	-I lib/util -I libcperciva/util
 .PATH.c	:	lib/crypto
+.PATH.c	:	libcperciva/alg
+.PATH.c	:	libcperciva/crypto
 SRCS	+=	crypto_aesctr.c crypto_scrypt-${VER}.c sha256.c
-CFLAGS	+=	-I lib/crypto
+CFLAGS	+=	-I lib/crypto -I libcperciva/alg -I libcperciva/crypto
 .PATH.c	:	lib/scryptenc
 SRCS	+=	scryptenc_cpuperf.c scryptenc.c
 CFLAGS	+=	-I lib/scryptenc
@@ -30,14 +33,14 @@ PKGSIGS=scrypt-sigs-${SCRYPTVERSION}
 
 publish-at:
 	mkdir -p ${PKGNAME}
-	cp -R lib ${PKGNAME}
+	cp -R lib libcperciva autocrap ${PKGNAME}
 	cp scrypt_platform.h main.c FORMAT scrypt.1 ${PKGNAME}
 	echo -n '${SCRYPTVERSION}' > scrypt-version
 	mkdir -p config.aux
-	aclocal-1.10 -I .
-	autoheader-2.62
-	automake-1.10 -a -c
-	autoconf-2.62
+	aclocal -I .
+	autoheader
+	automake -a -c
+	autoconf
 	mv Makefile.in config.h.in configure ${PKGNAME}/
 	rm aclocal.m4
 	mv config.aux ${PKGNAME}/
@@ -47,7 +50,7 @@ publish-at:
 
 publish: publish-at
 	sha256 ${PKGNAME}.tgz |			\
-	    gpg --secret-keyring ../EC2/md/gpg.key --clearsign -u 3DD61E72 \
+	    gpg --secret-keyring $GPGKEYFILE --clearsign -u $GPGKEYID \
 	    > ${PKGSIGS}.asc
 
 .include <bsd.prog.mk>
