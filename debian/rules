@@ -10,20 +10,3 @@
 override_dh_auto_clean:
 	-rm -f Makefile
 	dh_auto_clean
-
-# Enable SSE2 on amd64.
-
-# This would also work on *some* arch=i386 machines.  But the set of
-# arch=i386 machines which support SSE2 but do not have hardware
-# support for the amd64 instruction set is very small.  On an
-# arch=i386 that does have amd64 instruction set, the benefit of using
-# multiarch and installing the amd64 package is greater than the
-# benefit of just turning on SSE2.  So to keep things simple and
-# robust, we enable SSE2 only on amd64.
-
-configure_flags := \
- $(shell dpkg-architecture -eamd64 && echo --enable-sse2 || :) \
- $(shell dpkg-architecture -ei386 && echo --disable-sse2 || :)
-
-override_dh_auto_configure:
-	dh_auto_configure -- $(configure_flags)
