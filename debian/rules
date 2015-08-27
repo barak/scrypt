@@ -4,9 +4,9 @@
 %:
 	dh $@ --with autoreconf --parallel
 
-# The upstream Makefile in the tarball is not what you might expect,
-# and causes a syntax error (missing separator) in GNU make.
+# The autotools sources are in a subdirectory but autotools needs them
+# to be in the main directory.
 
-override_dh_auto_clean:
-	-rm -f Makefile
-	dh_auto_clean
+override_dh_autoreconf:
+	ln -sf autocrap/configure.ac autocrap/Makefile.am ./
+	dh_autoreconf
