@@ -2,8 +2,11 @@ m4_define([SCRYPT_VERS],m4_include([scrypt-version]))
 AC_INIT([scrypt],SCRYPT_VERS())
 AC_CONFIG_AUX_DIR([config.aux])
 AM_INIT_AUTOMAKE()
-AM_MAINTAINER_MODE
 AC_PROG_CC
+AC_PROG_RANLIB
+
+# Don't rebuild the configure script.  I'm distributing a perfectly good one.
+AM_MAINTAINER_MODE
 
 # Check for clock_gettime.  On some systems, this is provided via librt.
 AC_CHECK_LIB(rt, clock_gettime)
@@ -15,27 +18,22 @@ AC_CHECK_FUNCS([clock_gettime])
 AC_CHECK_HEADERS([sys/sysinfo.h])
 AC_CHECK_FUNCS([sysinfo])
 AC_CHECK_TYPES([struct sysinfo], [], [], [[#include <sys/sysinfo.h>]])
-AC_CHECK_MEMBERS([struct sysinfo.totalram, struct sysinfo.mem_unit],
-    [], [], [[#include <sys/sysinfo.h>]])
-
-# Check if we have a hw.usermem sysctl.
-CHECK_SYSCTL_HW_USERMEM
+AC_CHECK_MEMBERS([struct sysinfo.totalram, struct sysinfo.mem_unit], [], [],
+    [[#include <sys/sysinfo.h>]])
 
 # Check if we have <sys/param.h>, since some systems require it for sysctl
 # to work.
 AC_CHECK_HEADERS([sys/param.h])
 
+# Check for <sys/sysctl.h>.  If it exists and it defines HW_USERMEM
+# and/or HW_MEMSIZE, we'll try using those as memory limits.
+AC_CHECK_HEADERS([sys/sysctl.h])
+
 # Check for posix_memalign
 AC_CHECK_FUNCS([posix_memalign])
 
-# Figure out whether we want to use the SSE version of the scrypt code or not.
-AC_ARG_ENABLE([sse2],
-    [AS_HELP_STRING([--enable-sse2],
-	[use optimized SSE2 code])],
-    [],
-    [enable_sse2=no])
-AS_IF([test "x$enable_sse2" != xno], [SCRYPTVER=sse], [SCRYPTVER=nosse])
-AC_SUBST([SCRYPTVER])
+# Check for mmap so we can work around its absence on Minix
+AC_CHECK_FUNCS([mmap])
 
 AC_SYS_LARGEFILE
 

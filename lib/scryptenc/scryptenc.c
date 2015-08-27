@@ -37,12 +37,14 @@
 
 #include "crypto_aes.h"
 #include "crypto_aesctr.h"
-#include "crypto_scrypt.h"
+#include "crypto_entropy.h"
 #include "insecure_memzero.h"
-#include "memlimit.h"
-#include "scryptenc_cpuperf.h"
 #include "sha256.h"
 #include "sysendian.h"
+
+#include "crypto_scrypt.h"
+#include "memlimit.h"
+#include "scryptenc_cpuperf.h"
 
 #include "scryptenc.h"
 
@@ -51,7 +53,6 @@
 static int pickparams(size_t, double, double,
     int *, uint32_t *, uint32_t *);
 static int checkparams(size_t, double, double, int, uint32_t, uint32_t);
-static int getsalt(uint8_t[32]);
 
 static int
 pickparams(size_t maxmem, double maxmemfrac, double maxtime,
@@ -157,48 +158,6 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 }
 
 static int
-getsalt(uint8_t salt[32])
-{
-	int fd;
-	ssize_t lenread;
-	uint8_t * buf = salt;
-	size_t buflen = 32;
-
-	/* Open /dev/urandom. */
-	if ((fd = open("/dev/urandom", O_RDONLY)) == -1)
-		goto err0;
-
-	/* Read bytes until we have filled the buffer. */
-	while (buflen > 0) {
-		if ((lenread = read(fd, buf, buflen)) == -1)
-			goto err1;
-
-		/* The random device should never EOF. */
-		if (lenread == 0)
-			goto err1;
-
-		/* We're partly done. */
-		buf += lenread;
-		buflen -= lenread;
-	}
-
-	/* Close the device. */
-	while (close(fd) == -1) {
-		if (errno != EINTR)
-			goto err0;
-	}
-
-	/* Success! */
-	return (0);
-
-err1:
-	close(fd);
-err0:
-	/* Failure! */
-	return (4);
-}
-
-static int
 scryptenc_setup(uint8_t header[96], uint8_t dk[64],
     const uint8_t * passwd, size_t passwdlen,
     size_t maxmem, double maxmemfrac, double maxtime)
@@ -221,8 +180,8 @@ scryptenc_setup(uint8_t header[96], uint8_t dk[64],
 	N = (uint64_t)(1) << logN;
 
 	/* Get some salt. */
-	if ((rc = getsalt(salt)) != 0)
-		return (rc);
+	if (crypto_entropy_read(salt, 32))
+		return (4);
 
 	/* Generate the derived keys. */
 	if (crypto_scrypt(passwd, passwdlen, salt, 32, N, r, p, dk, 64))
@@ -468,8 +427,10 @@ scryptenc_file(FILE * infile, FILE * outfile,
 			break;
 		crypto_aesctr_stream(AES, buf, buf, readlen);
 		HMAC_SHA256_Update(&hctx, buf, readlen);
-		if (fwrite(buf, 1, readlen, outfile) < readlen)
+		if (fwrite(buf, 1, readlen, outfile) < readlen) {
+			crypto_aesctr_free(AES);
 			return (12);
+		}
 	} while (1);
 	crypto_aesctr_free(AES);
 	crypto_aes_key_free(key_enc_exp);
@@ -576,8 +537,10 @@ scryptdec_file(FILE * infile, FILE * outfile,
 		 */
 		HMAC_SHA256_Update(&hctx, buf, buflen - 32);
 		crypto_aesctr_stream(AES, buf, buf, buflen - 32);
-		if (fwrite(buf, 1, buflen - 32, outfile) < buflen - 32)
+		if (fwrite(buf, 1, buflen - 32, outfile) < buflen - 32) {
+			crypto_aesctr_free(AES);
 			return (12);
+		}
 
 		/* Move the last 32 bytes to the start of the buffer. */
 		memmove(buf, &buf[buflen - 32], 32);

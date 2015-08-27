@@ -34,7 +34,7 @@
 #ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
-#ifdef HAVE_SYSCTL_HW_USERMEM
+#ifdef HAVE_SYS_SYSCTL_H
 #include <sys/sysctl.h>
 #endif
 #ifdef HAVE_SYS_SYSINFO_H
@@ -53,19 +53,24 @@
 
 #include "memlimit.h"
 
-#ifdef HAVE_SYSCTL_HW_USERMEM
+/* If we don't have CTL_HW, we can't use HW_USERMEM. */
+#ifndef CTL_HW
+#undef HW_USERMEM
+#endif
+
+#ifdef CTL_HW
 static int
-memlimit_sysctl_hw_usermem(size_t * memlimit)
+memlimit_sysctl_hw(size_t * memlimit, int mibleaf)
 {
 	int mib[2];
-	uint8_t usermembuf[8];
-	size_t usermemlen = 8;
-	uint64_t usermem;
+	uint8_t sysctlbuf[8];
+	size_t sysctlbuflen = 8;
+	uint64_t sysctlval;
 
 	/* Ask the kernel how much RAM we have. */
 	mib[0] = CTL_HW;
-	mib[1] = HW_USERMEM;
-	if (sysctl(mib, 2, usermembuf, &usermemlen, NULL, 0))
+	mib[1] = mibleaf;
+	if (sysctl(mib, 2, sysctlbuf, &sysctlbuflen, NULL, 0))
 		return (1);
 
 	/*
@@ -75,21 +80,21 @@ memlimit_sysctl_hw_usermem(size_t * memlimit)
 	 * it's probably truncating, and we really can't trust the value we
 	 * have returned to us.
 	 */
-	if (usermemlen == sizeof(uint64_t))
-		memcpy(&usermem, usermembuf, sizeof(uint64_t));
-	else if (usermemlen == sizeof(uint32_t))
-		usermem = SIZE_MAX;
+	if (sysctlbuflen == sizeof(uint64_t))
+		memcpy(&sysctlval, sysctlbuf, sizeof(uint64_t));
+	else if (sysctlbuflen == sizeof(uint32_t))
+		sysctlval = SIZE_MAX;
 	else
 		return (1);
 
 	/* Return the sysctl value, but clamp to SIZE_MAX if necessary. */
 #if UINT64_MAX > SIZE_MAX
-	if (usermem > SIZE_MAX)
+	if (sysctlval > SIZE_MAX)
 		*memlimit = SIZE_MAX;
 	else
-		*memlimit = usermem;
+		*memlimit = sysctlval;
 #else
-	*memlimit = usermem;
+	*memlimit = sysctlval;
 #endif
 
 	/* Success! */
@@ -236,23 +241,30 @@ memlimit_sysconf(size_t * memlimit)
 int
 memtouse(size_t maxmem, double maxmemfrac, size_t * memlimit)
 {
-	size_t sysctl_memlimit, sysinfo_memlimit, rlimit_memlimit;
+	size_t usermem_memlimit, memsize_memlimit;
+	size_t sysinfo_memlimit, rlimit_memlimit;
 	size_t sysconf_memlimit;
 	size_t memlimit_min;
 	size_t memavail;
 
 	/* Get memory limits. */
-#ifdef HAVE_SYSCTL_HW_USERMEM
-	if (memlimit_sysctl_hw_usermem(&sysctl_memlimit))
+#ifdef HW_USERMEM
+	if (memlimit_sysctl_hw(&usermem_memlimit, HW_USERMEM))
 		return (1);
 #else
-	sysctl_memlimit = (size_t)(-1);
+	usermem_memlimit = SIZE_MAX;
+#endif
+#ifdef HW_MEMSIZE
+	if (memlimit_sysctl_hw(&memsize_memlimit, HW_MEMSIZE))
+		return (1);
+#else
+	memsize_memlimit = SIZE_MAX;
 #endif
 #ifdef HAVE_SYSINFO
 	if (memlimit_sysinfo(&sysinfo_memlimit))
 		return (1);
 #else
-	sysinfo_memlimit = (size_t)(-1);
+	sysinfo_memlimit = SIZE_MAX;
 #endif
 	if (memlimit_rlimit(&rlimit_memlimit))
 		return (1);
@@ -260,19 +272,22 @@ memtouse(size_t maxmem, double maxmemfrac, size_t * memlimit)
 	if (memlimit_sysconf(&sysconf_memlimit))
 		return (1);
 #else
-	sysconf_memlimit = (size_t)(-1);
+	sysconf_memlimit = SIZE_MAX;
 #endif
 
 #ifdef DEBUG
-	fprintf(stderr, "Memory limits are %zu %zu %zu %zu\n",
-	    sysctl_memlimit, sysinfo_memlimit, rlimit_memlimit,
+	fprintf(stderr, "Memory limits are %zu %zu %zu %zu %zu\n",
+	    usermem_memlimit, memsize_memlimit,
+	    sysinfo_memlimit, rlimit_memlimit,
 	    sysconf_memlimit);
 #endif
 
 	/* Find the smallest of them. */
-	memlimit_min = (size_t)(-1);
-	if (memlimit_min > sysctl_memlimit)
-		memlimit_min = sysctl_memlimit;
+	memlimit_min = SIZE_MAX;
+	if (memlimit_min > usermem_memlimit)
+		memlimit_min = usermem_memlimit;
+	if (memlimit_min > memsize_memlimit)
+		memlimit_min = memsize_memlimit;
 	if (memlimit_min > sysinfo_memlimit)
 		memlimit_min = sysinfo_memlimit;
 	if (memlimit_min > rlimit_memlimit)
