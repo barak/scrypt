@@ -3,10 +3,3 @@
 
 %:
 	dh $@ --with autoreconf --parallel
-
-# The autotools sources are in a subdirectory but autotools needs them
-# to be in the main directory.
-
-override_dh_autoreconf:
-	ln -sf autocrap/configure.ac autocrap/Makefile.am ./
-	dh_autoreconf
