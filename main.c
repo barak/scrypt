@@ -42,7 +42,9 @@ usage(void)
 {
 
 	fprintf(stderr,
-	    "usage: scrypt {enc | dec} [...] infile [outfile]\n");
+	    "usage: scrypt {enc | dec} [-M maxmem] [-m maxmemfrac]"
+	    " [-t maxtime] infile\n"
+	    "              [outfile]\n");
 	exit(1);
 }
 
@@ -134,6 +136,12 @@ main(int argc, char *argv[])
 	/* Zero and free the password. */
 	insecure_memzero(passwd, strlen(passwd));
 	free(passwd);
+
+	/* Close any files we opened. */
+	if (infile != stdin)
+		fclose(infile);
+	if (outfile != stdout)
+		fclose(outfile);
 
 	/* If we failed, print the right error message and exit. */
 	if (rc != 0) {
