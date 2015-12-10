@@ -9,24 +9,5 @@ http://www.tarsnap.com/scrypt.html scrypt/scrypt-(.*)\.tgz
 # SHA256 hash of the tarball, intead of a detached PGP signature,
 # so uscan fails to verify it anyway.
 
-# Since roughly 2009 there have been no more release tarballs.
-# However maintenance has moved to a publically-accessible
-# repository:
-#  https://code.google.com/p/scrypt/source/browse
-# This can be accessed from the debian packaging repository, which
-# uses git, via:
-#  git config svn-remote.svn.url 'http://scrypt.googlecode.com/svn/trunk'
-#  git config svn-remote.svn.fetch ':refs/remotes/svn/git-svn'
-#  git svn fetch
-# Unfortunately (a) point releases are not tagged, and (b) google code
-# no longer supports downloading of tarballs from repo tags, due to
-# abuse of that mechanism.  However, to date, the svn commits are atomic
-# fixes that appear suitable for treatment as point releases.  For this
-# reason they will be packaged as version+svn.r, where r is the svn
-# commit number.
-
-# The above is dated: a tarball for release 1.2.0 was published in
-# 20015, and the SVN repository lives on google code which is now
-# read-only.
-
-# Upstream development is now git://github.com/Tarsnap/scrypt.git
+# A tarball for release 1.2.0 was published in 20015, with upstream
+# development on git://github.com/Tarsnap/scrypt.git
