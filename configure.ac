@@ -36,6 +36,11 @@ AC_CHECK_MEMBERS([struct sysinfo.totalram, struct sysinfo.mem_unit], [], [],
 # to work.
 AC_CHECK_HEADERS([sys/param.h])
 
+# Check if we have <openssl/aes.h>, to fix the make failing when configure 
+# passes.
+AC_CHECK_HEADERS([openssl/aes.h],,
+  [AC_MSG_ERROR([Unable to find the openssl/aes.h header])])
+
 # Check for <sys/sysctl.h>.  If it exists and it defines HW_USERMEM
 # and/or HW_MEMSIZE, we'll try using those as memory limits.
 AC_CHECK_HEADERS([sys/sysctl.h])
@@ -48,7 +53,16 @@ AC_CHECK_FUNCS([mmap])
 
 AC_SYS_LARGEFILE
 
-AX_CFLAGS_WARN_ALL
+# Check whether the user has requested to disable compiler warnings
+AC_MSG_CHECKING([compiler_warnings])
+AC_ARG_ENABLE(compiler_warnings,
+   AS_HELP_STRING([--disable-compiler-warnings],
+       [Do not request compiler warnings. @<:@kefault=enabled@:>@]),
+   [ac_compiler_warnings=$enableval],
+   [ac_compiler_warnings=yes])
+AC_MSG_RESULT([${ac_compiler_warnings}])
+AS_IF([test x${ac_compiler_warnings} = xyes],
+   [AX_CFLAGS_WARN_ALL])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])
