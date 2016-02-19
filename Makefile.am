@@ -1,4 +1,4 @@
-bin_PROGRAMS=	scrypt
+bin_PROGRAMS=	scrypt test/test_scrypt
 dist_man_MANS=$(scrypt_man_MANS)
 
 scrypt_SOURCES=		main.c					\
@@ -8,7 +8,10 @@ scrypt_SOURCES=		main.c					\
 			libcperciva/crypto/crypto_aes.c		\
 			libcperciva/crypto/crypto_aesctr.c	\
 			libcperciva/crypto/crypto_entropy.c	\
+			libcperciva/util/asprintf.c		\
 			libcperciva/util/entropy.c		\
+			libcperciva/util/getopt.c		\
+			libcperciva/util/humansize.c		\
 			libcperciva/util/insecure_memzero.c	\
 			libcperciva/util/readpass.c		\
 			libcperciva/util/warnp.c		\
@@ -66,13 +69,24 @@ EXTRA_DIST = \
 	libcperciva/crypto/crypto_aes_aesni.h			\
 	libcperciva/crypto/crypto_aesctr.h			\
 	libcperciva/crypto/crypto_entropy.h			\
+	libcperciva/util/asprintf.h				\
 	libcperciva/util/entropy.h				\
+	libcperciva/util/humansize.h				\
 	libcperciva/util/insecure_memzero.h			\
 	libcperciva/util/readpass.h				\
 	libcperciva/util/sysendian.h				\
 	libcperciva/util/warnp.h				\
 	scrypt_platform.h					\
-	test/Makefile						\
-	test/main.c						\
+	test/test_scrypt.c					\
 	test/test_scrypt.good					\
 	test/test_scrypt.sh
+
+test_test_scrypt_SOURCES =	test/test_scrypt.c			\
+			libcperciva/alg/sha256.c			\
+			libcperciva/cpusupport/cpusupport_x86_sse2.c	\
+			libcperciva/util/insecure_memzero.c		\
+			libcperciva/util/warnp.c			\
+			lib/crypto/crypto_scrypt.c			\
+			lib/crypto/crypto_scrypt_smix.c			\
+			cpusupport-config.h
+test_test_scrypt_LDADD=	libscrypt_sse2.a
