@@ -23,6 +23,16 @@ presented at the [BSDCan'09](http://www.bsdcan.org/2009/) conference:
 * Conference presentation slides:
   [PDF](http://www.tarsnap.com/scrypt/scrypt-slides.pdf).
 
+More details are given in the Internet Engineering Task Force
+(IETF)
+[RFC 7914: The scrypt Password-Based Key Derivation Function](https://tools.ietf.org/html/rfc7914).
+
+It has been demonstrated that scrypt is maximally memory-hard:
+
+* J. Alwen, B. Chen, K. Pietrzak, L. Reyzin, S. Tessaro,
+  [Scrypt is Maximally Memory-Hard](http://eprint.iacr.org/2016/989),
+  Cryptology ePrint Archive: Report 2016/989.
+
 
 The scrypt encryption utility
 -----------------------------
@@ -81,7 +91,7 @@ Using scrypt as a KDF
 To use scrypt as a
 [key derivation function](https://en.wikipedia.org/wiki/Key_derivation_function)
 (KDF), take a
-look at the `lib/crypto/crypto_enc.h` header, which provides:
+look at the `lib/crypto/crypto_scrypt.h` header, which provides:
 
 ```
 /**
@@ -96,6 +106,47 @@ look at the `lib/crypto/crypto_enc.h` header, which provides:
 int crypto_scrypt(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
     uint32_t, uint32_t, uint8_t *, size_t);
 ```
+
+
+Building
+--------
+
+:exclamation: We strongly recommend that people use the latest
+official release tarball on https://www.tarsnap.com/scrypt.html,
+and build with:
+
+    ./configure
+    make
+
+> For experimental development from git, build with:
+>
+>     autoreconf -i
+>     ./configure
+>     make
+>
+> In order to support the `AX_CFLAGS_WARN_ALL` autoconf directive,
+> you will need to install the autoconf archive.  On Debian
+> systems, use the `autoconf-archive` package; on FreeBSD, use
+> `devel/autoconf-archive`.  You must have automake 1.11.2 or
+> higher.
+
+
+Testing
+-------
+
+A small test suite can be run with:
+
+    make test
+
+Memory-testing normal operations with valgrind (takes approximately 4 times as
+long as no valgrind tests) can be enabled with:
+
+    make test USE_VALGRIND=1
+
+Memory-testing all tests with valgrind (requires over 1 GB memory, and takes
+approximately 4 times as long as `USE_VALGRIND=1`) can be enabled with:
+
+    make test USE_VALGRIND=2
 
 
 Mailing list

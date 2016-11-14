@@ -13,13 +13,13 @@ mkdir ${DESTDIR} ${DESTDIR}/autocrap
 cp scrypt_platform.h main.c FORMAT ${DESTDIR}
 cp Makefile.am configure.ac .autom4te.cfg ${DESTDIR}
 cp Makefile.am configure.ac ${DESTDIR}/autocrap
-cp -R lib libcperciva ${DESTDIR}
+cp -R lib libcperciva tests ${DESTDIR}
 # Copy with substitution
 sed -e "s/@DATE@/$RELEASEDATE/" < scrypt.1 > ${DESTDIR}/scrypt.1
 
 # Generate autotools files
 ( cd ${DESTDIR}
-echo -n ${VERSION} > scrypt-version
+printf ${VERSION} > scrypt-version
 autoreconf -i
 rm .autom4te.cfg Makefile.am aclocal.m4 configure.ac scrypt-version )
 

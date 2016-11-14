@@ -20,7 +20,7 @@
  * using the ..._present and ..._init variables.  The _detect function and the
  * _present and _init variables are turn defined by CPUSUPPORT_FEATURE_DECL in
  * appropriate cpusupport_foo_bar.c file.
- * 
+ *
  * In order to allow CPUSUPPORT_FEATURE to be used for features which do not
  * have corresponding CPUSUPPORT_FEATURE_DECL blocks in another source file,
  * we abuse the C preprocessor: If CPUSUPPORT_${enabler} is defined to 1, then
@@ -88,6 +88,7 @@
 #define CPUSUPPORT_FEATURE_DECL(arch, feature)				\
 	int cpusupport_ ## arch ## _ ## feature ## _present_1 = 0;	\
 	int cpusupport_ ## arch ## _ ## feature ## _init_1 = 0;		\
+	int cpusupport_ ## arch ## _ ## feature ## _detect_1(void); \
 	int								\
 	cpusupport_ ## arch ## _ ## feature ## _detect_1(void)
 
