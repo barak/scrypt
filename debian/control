@@ -5,7 +5,7 @@ Maintainer: Barak A. Pearlmutter <bap@debian.org>
 Build-Depends: debhelper (>= 9),
 		dh-autoreconf, autoconf-archive,
 		libssl-dev
-Standards-Version: 3.9.6
+Standards-Version: 3.9.8
 Homepage: http://www.tarsnap.com/scrypt.html
 Vcs-Git: git://anonscm.debian.org/collab-maint/scrypt.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/scrypt.git
