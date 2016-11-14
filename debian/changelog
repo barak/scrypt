@@ -1,3 +1,14 @@
+scrypt (1.2.0+git.3.c1a9826-1) unstable; urgency=medium
+  
+  * merge upstream master branch
+  * harden
+  * bump policy version
+  * harden
+  * bump to debhelper 10
+  * include README.md in docs
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 14 Nov 2016 15:30:22 +0000
+
 scrypt (1.2.0+git.2.d8147ba-1) unstable; urgency=medium
 
   * merge upstream master branch
