@@ -5,3 +5,13 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
 	dh $@ --with autoreconf
+
+# In the upstream tarball, but not the git repo, the autotools support
+# files are in autotools/. For robustness, we link them to top level
+# if necessary.
+
+override_dh_autoreconf: configure.ac Makefile.am
+	dh_autoreconf
+
+configure.ac Makefile.am:
+	ln -s autotools/$@ ./
