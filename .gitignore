@@ -12,6 +12,7 @@
 /configure
 /cpusupport-config.h
 /scrypt
+/scrypt.1
 /stamp-h1
 Makefile
 Makefile.in

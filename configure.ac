@@ -66,6 +66,9 @@ AC_MSG_RESULT([${ac_compiler_warnings}])
 AS_IF([test x${ac_compiler_warnings} = xyes],
    [AX_CFLAGS_WARN_ALL])
 
+# Deal with @DATE@ substitution
+AC_SUBST(DATE,[$(date "+%B %d, %Y")])
+
 AC_CONFIG_HEADERS([config.h])
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile scrypt.1])
 AC_OUTPUT
