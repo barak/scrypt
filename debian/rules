@@ -4,7 +4,7 @@
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 %:
-	dh $@ --with autoreconf
+	dh $@
 
 # In the upstream tarball, but not the git repo, the autotools support
 # files are in autotools/. For robustness, we link them to top level
