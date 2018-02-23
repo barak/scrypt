@@ -2,10 +2,10 @@ Source: scrypt
 Section: utils
 Priority: optional
 Maintainer: Barak A. Pearlmutter <bap@debian.org>
-Build-Depends: debhelper (>= 10),
+Build-Depends: debhelper (>= 11),
 		dh-autoreconf, autoconf-archive,
 		libssl-dev
-Standards-Version: 3.9.8
+Standards-Version: 4.1.3
 Homepage: http://www.tarsnap.com/scrypt.html
 Vcs-Git: git://anonscm.debian.org/collab-maint/scrypt.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=collab-maint/scrypt.git
