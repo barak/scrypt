@@ -1,7 +1,7 @@
-Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: scrypt
-Source: http://www.tarsnap.com/scrypt
-	http://www.tarsnap.com/scrypt/scrypt-1.1.6.tgz
+Source: https://www.tarsnap.com/scrypt
+	https://www.tarsnap.com/scrypt/scrypt-1.1.6.tgz
 	https://github.com/Tarsnap/scrypt
 
 Files: *
