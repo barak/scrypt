@@ -1,3 +1,11 @@
+scrypt (1.2.1-2) unstable; urgency=medium
+
+  * bump to debhelper 11
+  * add gbp.conf
+  * secure some URLs
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Mon, 05 Mar 2018 16:20:07 +0000
+
 scrypt (1.2.1-1) unstable; urgency=medium
 
   * new upstream release
@@ -5,7 +13,7 @@ scrypt (1.2.1-1) unstable; urgency=medium
  -- Barak A. Pearlmutter <bap@debian.org>  Wed, 22 Feb 2017 15:20:49 +0000
 
 scrypt (1.2.0+git.3.c1a9826-1) unstable; urgency=medium
-  
+
   * merge upstream master branch
   * harden
   * bump policy version
