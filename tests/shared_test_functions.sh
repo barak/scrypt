@@ -34,20 +34,23 @@
 # - c_valgrind_cmd: this is the valgrind command (including
 #       appropriate log file) if necessary, or is "" otherwise.
 
-set -o nounset
+set -o noclobber -o nounset
 
-### Constants
-out="tests-output"
-out_valgrind="tests-valgrind"
-valgrind_suppressions="${out_valgrind}/suppressions"
-valgrind_suppressions_log="${out_valgrind}/suppressions.pre"
+# Keep the user-specified "print info about test failures", or initialize to 0
+# (don't print extra info).
+VERBOSE=${VERBOSE:-0}
 
-# Keep the user-specified ${USE_VALGRIND}, or initialize to 0.
+# Keep the user-specified ${USE_VALGRIND}, or initialize to 0 (don't do memory
+# tests).
 USE_VALGRIND=${USE_VALGRIND:-0}
 
 # A non-zero value unlikely to be used as an exit code by the programs being
 # tested.
 valgrind_exit_code=108
+
+# Set ${bindir} to $1 if given, else use "." for in-tree builds.
+bindir=$(CDPATH= cd -- "$(dirname -- "${1-.}")" && pwd -P)
+
 
 ## prepare_directories():
 # Delete any old directories, and create new ones as necessary.  Must be run
@@ -69,13 +72,13 @@ prepare_directories() {
 }
 
 ## find_system (cmd, args...):
-# Looks for ${cmd} in the $PATH, and ensure that it supports ${args}.
+# Look for ${cmd} in the $PATH, and ensure that it supports ${args}.
 find_system() {
 	cmd=$1
 	cmd_with_args=$@
-	# Look for ${cmd}.
-	system_binary=`command -v ${cmd}`
-	if [ -z "${system_binary}" ]; then
+	# Look for ${cmd}; the "|| true" and -} make this work with set -e.
+	system_binary=`command -v ${cmd}` || true
+	if [ -z "${system_binary-}" ]; then
 		system_binary=""
 		printf "System ${cmd} not found.\n" 1>&2
 	# If the command exists, check it ensures the ${args}.
@@ -86,6 +89,17 @@ find_system() {
 		printf " support necessary arguments.\n" 1>&2
 	fi
 	echo "${system_binary}"
+}
+
+## has_pid (cmd):
+# Look for ${cmd} in ps; return 0 if ${cmd} exists.
+has_pid() {
+	cmd=$1
+	pid=`ps -Aopid,args | grep "${cmd}" | grep -v "grep"` || true
+	if [ -n "${pid}" ]; then
+		return 0
+	fi
+	return 1
 }
 
 ## check_optional_valgrind ():
@@ -102,7 +116,7 @@ check_optional_valgrind() {
 }
 
 ## ensure_valgrind_suppresssion (potential_memleaks_binary):
-# Runs the ${potential_memleaks_binary} through valgrind, keeping
+# Run the ${potential_memleaks_binary} through valgrind, keeping
 # track of any apparent memory leak in order to suppress reporting
 # those leaks when testing other binaries.
 ensure_valgrind_suppression() {
@@ -112,23 +126,40 @@ ensure_valgrind_suppression() {
 	if [ ! "$USE_VALGRIND" -gt 0 ]; then
 		return
 	fi;
+
 	printf "Generating valgrind suppressions... "
+	valgrind_suppressions="${out_valgrind}/suppressions"
+	valgrind_suppressions_log="${out_valgrind}/suppressions.pre"
 
-	# Run valgrind on the binary, sending it a "\n" so that
-	# a test which uses STDIN will not wait for user input.
-	printf "\n" | (valgrind --leak-check=full --show-leak-kinds=all	\
-		--gen-suppressions=all					\
-		--log-file=${valgrind_suppressions_log}			\
-		${potential_memleaks_binary})
+	# Start off with an empty suppression file
+	touch ${valgrind_suppressions}
 
-	# Strip out useless parts from the log file, as well as
-	# removing references to the main and "pl_*" ("potential
-	# loss") functions so that the suppressions can apply to
-	# other binaries.
-	(grep -v "^==" ${valgrind_suppressions_log} 			\
-		| grep -v "   fun:pl_" -				\
-		| grep -v "   fun:main" -				\
-		> ${valgrind_suppressions} )
+	# Get list of tests
+	${potential_memleaks_binary} | while read testname; do
+		this_valgrind_supp="${valgrind_suppressions_log}-${testname}"
+
+		# Run valgrind on the binary, sending it a "\n" so that
+		# a test which uses STDIN will not wait for user input.
+		printf "\n" | (valgrind 				\
+		    --leak-check=full --show-leak-kinds=all		\
+		    --gen-suppressions=all				\
+		    --suppressions=${valgrind_suppressions}		\
+		    --log-file=${this_valgrind_supp}			\
+		    ${potential_memleaks_binary}			\
+		    ${testname})
+
+		# Append name to suppressions file
+		printf "# ${testname}\n" >> ${valgrind_suppressions}
+
+		# Strip out useless parts from the log file, as well as
+		# removing references to the main and "pl_*" ("potential loss")
+		# functions so that the suppressions can apply to other
+		# binaries.  Append to suppressions file.
+		(grep -v "^==" ${this_valgrind_supp}			\
+			| grep -v "   fun:pl_" -			\
+			| grep -v "   fun:main" -			\
+			>> ${valgrind_suppressions} ) || true
+	done
 
 	# Clean up
 	rm -f ${valgrind_suppressions_log}
@@ -143,11 +174,6 @@ ensure_valgrind_suppression() {
 setup_check_variables() {
 	# Set up the "exit" file.
 	c_exitfile="${s_basename}-`printf %02d ${s_count}`.exit"
-
-	# If we don't have a suppressions file, don't try to use it.
-	if [ ! -e ${valgrind_suppressions} ]; then
-		valgrind_suppressions=/dev/null
-	fi
 
 	# Set up the valgrind command if $USE_VALGRIND is greater
 	# than or equal to ${valgrind_min}; otherwise, produce an
@@ -193,16 +219,32 @@ notify_success_or_fail() {
 	log_basename=$1
 	val_log_basename=$2
 
+	# Bail if there's no exitfiles.
+	exitfiles=`ls ${log_basename}-*.exit` || true
+	if [ -z "$exitfiles" ]; then
+		echo "FAILED"
+		s_retval=1
+		return
+	fi
+
+	# Count results
+	total_exitfiles=0
+	skip_exitfiles=0
+
 	# Check each exitfile.
-	for exitfile in `ls ${log_basename}-*.exit | sort`; do
+	for exitfile in `echo $exitfiles | sort`; do
 		ret=`cat ${exitfile}`
+		total_exitfiles=$(( total_exitfiles + 1 ))
 		if [ "${ret}" -lt 0 ]; then
-			echo "SKIP!"
-			return
+			skip_exitfiles=$(( skip_exitfiles + 1 ))
 		fi
 		if [ "${ret}" -gt 0 ]; then
 			echo "FAILED!"
 			retval=${ret}
+			if [ ${VERBOSE} -ne 0 ]; then
+				printf "File ${exitfile} contains exit" 1>&2
+				printf " code ${ret}.\n" 1>&2
+			fi
 			if [ "${ret}" -eq "${valgrind_exit_code}" ]; then
 				val_logfilename=$( get_val_logfile \
 					${val_log_basename} ${exitfile} )
@@ -213,11 +255,19 @@ notify_success_or_fail() {
 		fi
 	done
 
-	echo "SUCCESS!"
+	if [ ${skip_exitfiles} -gt 0 ]; then
+		if [ ${skip_exitfiles} -eq ${total_exitfiles} ]; then
+			echo "SKIP!"
+		else
+			echo "PARTIAL SUCCESS / SKIP!"
+		fi
+	else
+		echo "SUCCESS!"
+	fi
 }
 
 ## scenario_runner (scenario_filename):
-# Runs a test scenario from ${scenario_filename}.
+# Run a test scenario from ${scenario_filename}.
 scenario_runner() {
 	scenario_filename=$1
 	basename=`basename ${scenario_filename} .sh`
@@ -251,8 +301,18 @@ scenario_runner() {
 }
 
 ## run_scenarios (scenario_filenames):
-# Runs all scenarios matching ${scenario_filenames}.
+# Run all scenarios matching ${scenario_filenames}.
 run_scenarios() {
+	# Check for optional valgrind.
+	check_optional_valgrind
+
+	# Clean up previous directories, and create new ones.
+	prepare_directories
+
+	# Generate valgrind suppression file if it is required.  Must be
+	# done after preparing directories.
+	ensure_valgrind_suppression ${bindir}/tests/valgrind/potential-memleaks
+
 	printf -- "Running tests\n"
 	printf -- "-------------\n"
 	scenario_filenames=$@

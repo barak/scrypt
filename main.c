@@ -25,6 +25,7 @@
  */
 #include "scrypt_platform.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 #include "getopt.h"
 #include "humansize.h"
 #include "insecure_memzero.h"
+#include "parsenum.h"
 #include "readpass.h"
 #include "scryptenc.h"
 #include "warnp.h"
@@ -53,7 +55,7 @@ int
 main(int argc, char *argv[])
 {
 	FILE * infile;
-	FILE * outfile;
+	FILE * outfile = stdout;
 	int devtty = 1;
 	int dec = 0;
 	size_t maxmem = 0;
@@ -62,9 +64,12 @@ main(int argc, char *argv[])
 	double maxmemfrac = 0.5;
 	double maxtime = 300.0;
 	const char * ch;
+	const char * infilename;
+	const char * outfilename;
 	char * passwd;
 	int rc;
 	int verbose = 0;
+	struct scryptdec_file_cookie * C = NULL;
 
 	WARNP_INIT;
 
@@ -105,10 +110,16 @@ main(int argc, char *argv[])
 			maxmem = (size_t)maxmem64;
 			break;
 		GETOPT_OPTARG("-m"):
-			maxmemfrac = strtod(optarg, NULL);
+			if (PARSENUM(&maxmemfrac, optarg, 0, 1)) {
+				warnp("Invalid option: -m %s", optarg);
+				exit(1);
+			}
 			break;
 		GETOPT_OPTARG("-t"):
-			maxtime = strtod(optarg, NULL);
+			if (PARSENUM(&maxtime, optarg, 0, INFINITY)) {
+				warnp("Invalid option: -t %s", optarg);
+				exit(1);
+			}
 			break;
 		GETOPT_OPT("-v"):
 			verbose = 1;
@@ -131,39 +142,68 @@ main(int argc, char *argv[])
 	if ((argc < 1) || (argc > 2))
 		usage();
 
+	/* Set the input filename. */
+	if (strcmp(argv[0], "-"))
+		infilename = argv[0];
+	else
+		infilename = NULL;
+
+	/* Set the output filename. */
+	if (argc > 1)
+		outfilename = argv[1];
+	else
+		outfilename = NULL;
+
 	/* If the input isn't stdin, open the file. */
-	if (strcmp(argv[0], "-")) {
-		if ((infile = fopen(argv[0], "rb")) == NULL) {
-			warnp("Cannot open input file: %s", argv[0]);
-			exit(1);
+	if (infilename != NULL) {
+		if ((infile = fopen(infilename, "rb")) == NULL) {
+			warnp("Cannot open input file: %s", infilename);
+			goto err0;
 		}
 	} else {
 		infile = stdin;
 	}
 
-	/* If we have an output file, open it. */
-	if (argc > 1) {
-		if ((outfile = fopen(argv[1], "wb")) == NULL) {
-			warnp("Cannot open output file: %s", argv[1]);
-			exit(1);
-		}
-	} else {
-		outfile = stdout;
-	}
-
 	/* Prompt for a password. */
 	if (readpass(&passwd, "Please enter passphrase",
 	    (dec || !devtty) ? NULL : "Please confirm passphrase", devtty))
-		exit(1);
+		goto err1;
+
+	/*-
+	 * If we're decrypting, open the input file and process its header;
+	 * doing this here allows us to abort without creating an output
+	 * file if the input file does not have a valid scrypt header or if
+	 * we have the wrong passphrase.
+	 *
+	 * If successful, we get back a cookie containing the decryption
+	 * parameters (which we'll use after we open the output file).
+	 */
+	if (dec) {
+		if ((rc = scryptdec_file_prep(infile, (uint8_t *)passwd,
+		    strlen(passwd), maxmem, maxmemfrac, maxtime, verbose,
+		    force_resources, &C)) != 0) {
+			goto cleanup;
+		}
+	}
+
+	/* If we have an output file, open it. */
+	if (outfilename != NULL) {
+		if ((outfile = fopen(outfilename, "wb")) == NULL) {
+			warnp("Cannot open output file: %s", outfilename);
+			goto err2;
+		}
+	}
 
 	/* Encrypt or decrypt. */
 	if (dec)
-		rc = scryptdec_file(infile, outfile, (uint8_t *)passwd,
-		    strlen(passwd), maxmem, maxmemfrac, maxtime, verbose,
-		    force_resources);
+		rc = scryptdec_file_copy(C, outfile);
 	else
 		rc = scryptenc_file(infile, outfile, (uint8_t *)passwd,
 		    strlen(passwd), maxmem, maxmemfrac, maxtime, verbose);
+
+cleanup:
+	/* Free the decryption cookie, if any. */
+	scryptdec_file_cookie_free(C);
 
 	/* Zero and free the password. */
 	insecure_memzero(passwd, strlen(passwd));
@@ -213,14 +253,29 @@ main(int argc, char *argv[])
 			break;
 		case 12:
 			warnp("Error writing file: %s",
-			    (argc > 1) ? argv[1] : "standard output");
+			    (outfilename != NULL) ? outfilename
+			    : "standard output");
 			break;
 		case 13:
-			warnp("Error reading file: %s", argv[0]);
+			warnp("Error reading file: %s",
+			    (infilename != NULL) ? infilename
+			    : "standard input");
 			break;
 		}
-		exit(1);
+		goto err0;
 	}
 
+	/* Success! */
 	return (0);
+
+err2:
+	scryptdec_file_cookie_free(C);
+	insecure_memzero(passwd, strlen(passwd));
+	free(passwd);
+err1:
+	if (infile != stdin)
+		fclose(infile);
+err0:
+	/* Failure! */
+	exit(1);
 }
