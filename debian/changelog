@@ -1,3 +1,12 @@
+scrypt (1.2.2-1) unstable; urgency=medium
+
+  * swizzle packaging repo to salsa
+  * new upstream release
+  * bump standards version
+  * escape $ in sed command in debian/rules
+
+ -- Barak A. Pearlmutter <bap@debian.org>  Sun, 16 Sep 2018 17:54:24 +0100
+
 scrypt (1.2.1-2) unstable; urgency=medium
 
   * bump to debhelper 11
