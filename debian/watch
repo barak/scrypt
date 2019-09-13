@@ -1,5 +1,5 @@
-version=3
-https://www.tarsnap.com/scrypt.html scrypt/scrypt-(.*)\.tgz
+version=4
+https://www.tarsnap.com/@PACKAGE@.html @PACKAGE@/@PACKAGE@@ANY_VERSION@@ARCHIVE_EXT@
 
 # Signature looks like:
 #  scrypt/scrypt-sigs-1.1.6.asc
