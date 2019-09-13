@@ -9,5 +9,5 @@ https://www.tarsnap.com/scrypt.html scrypt/scrypt-(.*)\.tgz
 # SHA256 hash of the tarball, intead of a detached PGP signature,
 # so uscan fails to verify it anyway.
 
-# A tarball for release 1.2.0 was published in 20015, with upstream
+# A tarball for release 1.2.0 was published in 2015, with upstream
 # development on git://github.com/Tarsnap/scrypt.git
