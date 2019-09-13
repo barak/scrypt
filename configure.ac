@@ -8,17 +8,13 @@ AM_INIT_AUTOMAKE([foreign subdir-objects -Wall])
 
 # Checks for programs.
 AC_PROG_CC_C99
-AC_PROG_RANLIB
 AM_PROG_AR
+LT_INIT
 
 # Don't rebuild the configure script.  I'm distributing a perfectly good one.
 AM_MAINTAINER_MODE
 
 # Checks for libraries.
-
-# Check for clock_gettime.  On some systems, this is provided via librt.
-AC_SEARCH_LIBS([clock_gettime], [rt])
-AC_CHECK_FUNCS([clock_gettime])
 
 AC_SEARCH_LIBS([AES_encrypt], [crypto],,
     AC_MSG_ERROR([function AES_ENCRYPT not found]))
@@ -36,7 +32,7 @@ AC_CHECK_MEMBERS([struct sysinfo.totalram, struct sysinfo.mem_unit], [], [],
 # to work.
 AC_CHECK_HEADERS([sys/param.h])
 
-# Check if we have <openssl/aes.h>, to fix the make failing when configure 
+# Check if we have <openssl/aes.h>, to fix the make failing when configure
 # passes.
 AC_CHECK_HEADERS([openssl/aes.h],,
   [AC_MSG_ERROR([Unable to find the openssl/aes.h header])])
@@ -63,6 +59,20 @@ AC_ARG_ENABLE(compiler_warnings,
 AC_MSG_RESULT([${ac_compiler_warnings}])
 AS_IF([test x${ac_compiler_warnings} = xyes],
    [AX_CFLAGS_WARN_ALL])
+
+# Check libcperciva POSIX compatibility
+AC_MSG_NOTICE([checking POSIX compatibility...])
+LIBCPERCIVA_DIR=${srcdir}/libcperciva
+LDADD_POSIX=`export CC="${CC}"; command -p sh ${LIBCPERCIVA_DIR}/POSIX/posix-l.sh "$PATH"`
+CFLAGS_POSIX=`export CC="${CC}"; command -p sh ${LIBCPERCIVA_DIR}/POSIX/posix-cflags.sh "$PATH"`
+AC_SUBST([LDADD_POSIX])
+AC_SUBST([CFLAGS_POSIX])
+AC_MSG_RESULT([... done checking POSIX compatibility])
+
+# Check whether the user wants to install libscrypt-kdf
+AC_ARG_ENABLE(libscrypt-kdf, AS_HELP_STRING([--enable-libscrypt-kdf],
+    [Install libscrypt-kdf and development headers.]))
+AM_CONDITIONAL([LIBSCRYPT_KDF], [test "x${enable_libscrypt_kdf}" = "xyes"])
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile])

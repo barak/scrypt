@@ -95,7 +95,7 @@ find_system() {
 # Look for ${cmd} in ps; return 0 if ${cmd} exists.
 has_pid() {
 	cmd=$1
-	pid=`ps -Aopid,args | grep "${cmd}" | grep -v "grep"` || true
+	pid=`ps -Aopid,args | grep -F "${cmd}" | grep -v "grep"` || true
 	if [ -n "${pid}" ]; then
 		return 0
 	fi
@@ -140,7 +140,7 @@ ensure_valgrind_suppression() {
 
 		# Run valgrind on the binary, sending it a "\n" so that
 		# a test which uses STDIN will not wait for user input.
-		printf "\n" | (valgrind 				\
+		printf "\n" | (valgrind					\
 		    --leak-check=full --show-leak-kinds=all		\
 		    --gen-suppressions=all				\
 		    --suppressions=${valgrind_suppressions}		\
@@ -208,6 +208,23 @@ get_val_logfile() {
 	exitfile=$2
 	num=`echo "${exitfile}" | rev | cut -c 1-7 | rev | cut -c 1-2 `
 	echo "${val_basename}-${num}.log"
+}
+
+## expected_exitcode (expected, exitcode):
+# If ${exitcode} matches the ${expected} value, return 0.  If the exitcode is
+# ${valgrind_exit_code}, return that.  Otherwise, return 1 to indicate
+# failure.
+expected_exitcode() {
+	expected=$1
+	exitcode=$2
+
+	if [ "${exitcode}" -eq "${expected}" ]; then
+		echo "0"
+	elif [ "${exitcode}" -eq "${valgrind_exit_code}" ]; then
+		echo "${valgrind_exit_code}"
+	else
+		echo "1"
+	fi
 }
 
 ## notify_success_or_fail (log_basename, val_log_basename):

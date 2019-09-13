@@ -26,8 +26,6 @@
  * This file was originally written by Colin Percival as part of the Tarsnap
  * online backup system.
  */
-#include "scrypt_platform.h"
-
 #include <assert.h>
 #include <inttypes.h>
 #include <stdint.h>
@@ -38,6 +36,7 @@
 #include "crypto_aes.h"
 #include "crypto_aesctr.h"
 #include "crypto_entropy.h"
+#include "crypto_verify_bytes.h"
 #include "humansize.h"
 #include "insecure_memzero.h"
 #include "sha256.h"
@@ -55,6 +54,7 @@ static int pickparams(size_t, double, double,
     int *, uint32_t *, uint32_t *, int);
 static int checkparams(size_t, double, double, int, uint32_t, uint32_t, int,
     int);
+static int scryptdec_file_load_header(FILE *, uint8_t [static 96]);
 
 struct scryptdec_file_cookie {
 	FILE *	infile;		/* This is not owned by this cookie. */
@@ -68,17 +68,27 @@ display_params(int logN, uint32_t r, uint32_t p, size_t memlimit,
 {
 	uint64_t N = (uint64_t)(1) << logN;
 	uint64_t mem_minimum = 128 * r * N;
-	double expected_seconds = 4 * N * p / opps;
+	double expected_seconds = opps > 0 ? 4 * N * p / opps : 0;
 	char * human_memlimit = humansize(memlimit);
 	char * human_mem_minimum = humansize(mem_minimum);
 
+	/* Parameters */
 	fprintf(stderr, "Parameters used: N = %" PRIu64 "; r = %" PRIu32
 	    "; p = %" PRIu32 ";\n", N, r, p);
-	fprintf(stderr, "    This requires at least %s bytes of memory "
-	    "(%s available),\n", human_mem_minimum, human_memlimit);
-	fprintf(stderr, "    and will take approximately %.1f seconds "
-	    "(limit: %.1f seconds).\n", expected_seconds, maxtime);
 
+	/* Memory */
+	fprintf(stderr, "    This requires at least %s bytes of memory",
+	    human_mem_minimum);
+	if (memlimit > 0)
+		fprintf(stderr, " (%s available)", human_memlimit);
+
+	/* CPU time */
+	if (opps > 0)
+		fprintf(stderr, ",\n    and will take approximately %.1f "
+		    "seconds (limit: %.1f seconds)", expected_seconds, maxtime);
+	fprintf(stderr, ".\n");
+
+	/* Clean up */
 	free(human_memlimit);
 	free(human_mem_minimum);
 }
@@ -258,6 +268,39 @@ scryptenc_setup(uint8_t header[96], uint8_t dk[64],
 }
 
 /*
+ * scryptdec_file_printparams(infile):
+ * Print the encryption parameters (N, r, p) used for the encrypted ${infile}.
+ */
+int
+scryptdec_file_printparams(FILE * infile)
+{
+	uint8_t header[96];
+	int logN;
+	uint32_t r;
+	uint32_t p;
+	int rc;
+
+	/* Load the header. */
+	if ((rc = scryptdec_file_load_header(infile, header)) != 0)
+		goto err0;
+
+	/* Parse N, r, p. */
+	logN = header[7];
+	r = be32dec(&header[8]);
+	p = be32dec(&header[12]);
+
+	/* Print parameters. */
+	display_params(logN, r, p, 0, 0, 0);
+
+	/* Success! */
+	return (0);
+
+err0:
+	/* Failure! */
+	return (rc);
+}
+
+/*
  * NOTE: The caller is responsible for sanitizing ${dk}, including if this
  * function fails.
  */
@@ -288,7 +331,7 @@ scryptdec_setup(const uint8_t header[96], uint8_t dk[64],
 	SHA256_Init(&ctx);
 	SHA256_Update(&ctx, header, 48);
 	SHA256_Final(hbuf, &ctx);
-	if (memcmp(&header[48], hbuf, 16))
+	if (crypto_verify_bytes(&header[48], hbuf, 16))
 		return (7);
 
 	/*
@@ -309,7 +352,7 @@ scryptdec_setup(const uint8_t header[96], uint8_t dk[64],
 	HMAC_SHA256_Init(&hctx, key_hmac, 32);
 	HMAC_SHA256_Update(&hctx, header, 64);
 	HMAC_SHA256_Final(hbuf, &hctx);
-	if (memcmp(hbuf, &header[64], 32))
+	if (crypto_verify_bytes(hbuf, &header[64], 32))
 		return (11);
 
 	/* Success! */
@@ -446,7 +489,7 @@ scryptdec_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 	HMAC_SHA256_Init(&hctx, key_hmac, 32);
 	HMAC_SHA256_Update(&hctx, inbuf, inbuflen - 32);
 	HMAC_SHA256_Final(hbuf, &hctx);
-	if (memcmp(hbuf, &inbuf[inbuflen - 32], 32)) {
+	if (crypto_verify_bytes(hbuf, &inbuf[inbuflen - 32], 32)) {
 		rc = 7;
 		goto err1;
 	}
@@ -574,6 +617,58 @@ scryptdec_file_cookie_free(struct scryptdec_file_cookie * C)
 	free(C);
 }
 
+/* Load the header and check the magic. */
+static int
+scryptdec_file_load_header(FILE * infile, uint8_t header[static 96])
+{
+	int rc;
+
+	/*
+	 * Read the first 7 bytes of the file; all future versions of scrypt
+	 * are guaranteed to have at least 7 bytes of header.
+	 */
+	if (fread(header, 7, 1, infile) < 1) {
+		if (ferror(infile)) {
+			rc = 13;
+			goto err0;
+		} else {
+			rc = 7;
+			goto err0;
+		}
+	}
+
+	/* Do we have the right magic? */
+	if (memcmp(header, "scrypt", 6)) {
+		rc = 7;
+		goto err0;
+	}
+	if (header[6] != 0) {
+		rc = 8;
+		goto err0;
+	}
+
+	/*
+	 * Read another 89 bytes of the file; version 0 of the scrypt file
+	 * format has a 96-byte header.
+	 */
+	if (fread(&header[7], 89, 1, infile) < 1) {
+		if (ferror(infile)) {
+			rc = 13;
+			goto err0;
+		} else {
+			rc = 7;
+			goto err0;
+		}
+	}
+
+	/* Success! */
+	return (0);
+
+err0:
+	/* Failure! */
+	return (rc);
+}
+
 /**
  * scryptdec_file_prep(infile, passwd, passwdlen, maxmem, maxmemfrac,
  *     maxtime, force, cookie):
@@ -594,43 +689,9 @@ scryptdec_file_prep(FILE * infile, const uint8_t * passwd,
 		return (6);
 	C->infile = infile;
 
-	/*
-	 * Read the first 7 bytes of the file; all future versions of scrypt
-	 * are guaranteed to have at least 7 bytes of header.
-	 */
-	if (fread(C->header, 7, 1, C->infile) < 1) {
-		if (ferror(C->infile)) {
-			rc = 13;
-			goto err1;
-		} else {
-			rc = 7;
-			goto err1;
-		}
-	}
-
-	/* Do we have the right magic? */
-	if (memcmp(C->header, "scrypt", 6)) {
-		rc = 7;
+	/* Load the header. */
+	if ((rc = scryptdec_file_load_header(infile, C->header)) != 0)
 		goto err1;
-	}
-	if (C->header[6] != 0) {
-		rc = 8;
-		goto err1;
-	}
-
-	/*
-	 * Read another 89 bytes of the file; version 0 of the scrypt file
-	 * format has a 96-byte header.
-	 */
-	if (fread(&C->header[7], 89, 1, C->infile) < 1) {
-		if (ferror(C->infile)) {
-			rc = 13;
-			goto err1;
-		} else {
-			rc = 7;
-			goto err1;
-		}
-	}
 
 	/* Parse the header and generate derived keys. */
 	if ((rc = scryptdec_setup(C->header, C->dk, passwd, passwdlen,
@@ -739,7 +800,7 @@ scryptdec_file_copy(struct scryptdec_file_cookie * C, FILE * outfile)
 
 	/* Verify signature. */
 	HMAC_SHA256_Final(hbuf, &hctx);
-	if (memcmp(hbuf, buf, 32)) {
+	if (crypto_verify_bytes(hbuf, buf, 32)) {
 		rc = 7;
 		goto err0;
 	}

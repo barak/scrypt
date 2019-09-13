@@ -10,10 +10,11 @@ RELEASEDATE=`date "+%B %d, %Y"`
 
 # Copy bits in
 mkdir ${DESTDIR} ${DESTDIR}/autotools
-cp scrypt_platform.h main.c FORMAT COPYRIGHT BUILDING ${DESTDIR}
+cp main.c FORMAT COPYRIGHT BUILDING ${DESTDIR}
 cp Makefile.am .autom4te.cfg ${DESTDIR}
 cp Makefile.am ${DESTDIR}/autotools
-cp -R lib libcperciva tests ${DESTDIR}
+mkdir ${DESTDIR}/m4
+cp -R lib libcperciva libscrypt-kdf tests ${DESTDIR}
 # Copy with substitution
 sed -e "s/@DATE@/$RELEASEDATE/" < scrypt.1 > ${DESTDIR}/scrypt.1
 sed -e "s/\[m4_esyscmd(\[sh get-version\.sh\])]/${VERSION}/" \

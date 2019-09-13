@@ -26,22 +26,25 @@
  * This file was originally written by Colin Percival as part of the Tarsnap
  * online backup system.
  */
-#ifndef _CRYPTO_SCRYPT_H_
-#define _CRYPTO_SCRYPT_H_
+#ifndef SCRYPT_KDF_H
+#define SCRYPT_KDF_H
 
 #include <stddef.h>
 #include <stdint.h>
 
+/* Internal name of function. */
+#define scrypt_kdf crypto_scrypt
+
 /**
- * crypto_scrypt(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
+ * scrypt_kdf(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
  * Compute scrypt(passwd[0 .. passwdlen - 1], salt[0 .. saltlen - 1], N, r,
  * p, buflen) and write the result into buf.  The parameters r, p, and buflen
- * must satisfy 0 < r * p < 2^30 and buflen <= (2^32 - 1) * 32.  The parameter
- * N must be a power of 2 greater than 1.
+ * must satisfy r * p < 2^30 and buflen <= (2^32 - 1) * 32.  The parameter N
+ * must be a power of 2 greater than 1.
  *
  * Return 0 on success; or -1 on error.
  */
-int crypto_scrypt(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
+int scrypt_kdf(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
     uint32_t, uint32_t, uint8_t *, size_t);
 
-#endif /* !_CRYPTO_SCRYPT_H_ */
+#endif /* !SCRYPT_KDF_H */

@@ -29,8 +29,9 @@
 
 /* We use non-POSIX functionality in this file. */
 #undef _POSIX_C_SOURCE
+#undef _XOPEN_SOURCE
 
-#include "scrypt_platform.h"
+#include "platform.h"
 
 #include <sys/types.h>
 #include <sys/resource.h>
@@ -166,12 +167,14 @@ memlimit_rlimit(size_t * memlimit)
 		memrlimit = (uint64_t)rl.rlim_cur;
 #endif
 
-	/* ... RLIMIT_DATA... */
+#ifndef HAVE_MMAP
+	/* ... RLIMIT_DATA (if we're not using mmap)... */
 	if (getrlimit(RLIMIT_DATA, &rl))
 		return (1);
 	if ((rl.rlim_cur != RLIM_INFINITY) &&
 	    ((uint64_t)rl.rlim_cur < memrlimit))
 		memrlimit = (uint64_t)rl.rlim_cur;
+#endif
 
 	/* ... and RLIMIT_RSS. */
 #ifdef RLIMIT_RSS
@@ -245,6 +248,12 @@ memlimit_sysconf(size_t * memlimit)
 }
 #endif
 
+/**
+ * memtouse(maxmem, maxmemfrac, memlimit):
+ * Examine the system and return via memlimit the amount of RAM which should
+ * be used -- the specified fraction of the available RAM, but no more than
+ * maxmem, and no less than 1MiB.
+ */
 int
 memtouse(size_t maxmem, double maxmemfrac, size_t * memlimit)
 {
@@ -283,11 +292,22 @@ memtouse(size_t maxmem, double maxmemfrac, size_t * memlimit)
 #endif
 
 #ifdef DEBUG
-	fprintf(stderr, "Memory limits are %zu %zu %zu %zu %zu\n",
-	    usermem_memlimit, memsize_memlimit,
-	    sysinfo_memlimit, rlimit_memlimit,
-	    sysconf_memlimit);
+	/* rlimit has two '\t' so that they line up. */
+	fprintf(stderr, "Memory limits are:\n\tusermem:\t%zu\n"
+	    "\tmemsize:\t%zu\n\tsysinfo:\t%zu\n\trlimit:\t\t%zu\n"
+	    "\tsysconf:\t%zu\n", usermem_memlimit, memsize_memlimit,
+	    sysinfo_memlimit, rlimit_memlimit, sysconf_memlimit);
 #endif
+
+	/*
+	 * Some systems return bogus values for hw.usermem due to ZFS making
+	 * use of wired pages.  Assume that at least 50% of physical pages
+	 * are available to userland on demand.
+	 */
+	if (sysconf_memlimit != SIZE_MAX) {
+		if (usermem_memlimit < sysconf_memlimit / 2)
+			usermem_memlimit = sysconf_memlimit / 2;
+	}
 
 	/* Find the smallest of them. */
 	memlimit_min = SIZE_MAX;
