@@ -5,4 +5,7 @@
 /autoreconf.before
 /debhelper-build-stamp
 /files
+/libscrypt-kdf-dev/
+/libscrypt-kdf1/
 /scrypt/
+/tmp/

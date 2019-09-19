@@ -17,3 +17,6 @@ override_dh_autoreconf: configure.ac Makefile.am
 
 configure.ac Makefile.am:
 	ln --verbose -s autotools/$@ ./
+
+override_dh_auto_configure:
+	dh_auto_configure -- --enable-libscrypt-kdf
