@@ -42,7 +42,7 @@ Package: libscrypt-kdf-dev
 Section: libdevel
 Architecture: any
 Multi-Arch: same
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, libscrypt-kdf1 (= ${binary:Version})
 Description: Development library for encryption using scrypt for key derivation
  A simple password-based encryption utility which demonstrates the
  scrypt key derivation function.  On modern hardware and with default
