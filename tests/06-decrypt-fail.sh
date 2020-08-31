@@ -4,12 +4,12 @@
 c_valgrind_min=1
 non_encoded_file="${scriptdir}/06-decrypt-fail.sh"
 non_encoded_file_stderr="${s_basename}-stderr.txt"
-non_encoded_file_output="${out}/nonfile.txt"
+non_encoded_file_output="${s_basename}-nonfile.txt"
 
 scenario_cmd() {
 	# Attempt to decrypt a non-scrypt-encoded file.
 	# We want this command to fail with 1.
-	setup_check_variables
+	setup_check_variables "scrypt dec non-scrypt"
 	(
 		echo "" | ${c_valgrind_cmd} ${bindir}/scrypt		\
 		    dec -P ${non_encoded_file}				\
@@ -19,14 +19,14 @@ scenario_cmd() {
 	)
 
 	# We should have received an error mssage.
-	setup_check_variables
+	setup_check_variables "scrypt dec non-scrypt error"
 	grep -q "scrypt: Input is not valid scrypt-encrypted block" \
 	    ${non_encoded_file_stderr}
 	echo "$?" > ${c_exitfile}
 
 	# We should not have created a file.
-	setup_check_variables
-	if [ -e ${non_encoded_file_output}} ]; then
+	setup_check_variables "scrypt dec non-scrypt no file"
+	if [ -e ${non_encoded_file_output} ]; then
 		echo "1"
 	else
 		echo "0"

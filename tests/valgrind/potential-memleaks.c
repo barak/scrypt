@@ -6,7 +6,7 @@
 
 /* Problem with FreeBSD 10.3 fgets() with stdin. */
 static void
-pl_freebsd_fgets()
+pl_freebsd_fgets(void)
 {
 	char buf[FGETS_BUFSIZE];
 
@@ -16,8 +16,8 @@ pl_freebsd_fgets()
 
 #define MEMLEAKTEST(x) { #x, x }
 static const struct memleaktest {
-	const char * name;
-	void (* func)(void);
+	const char * const name;
+	void (* const volatile func)(void);
 } tests[] = {
 	MEMLEAKTEST(pl_freebsd_fgets)
 };

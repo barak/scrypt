@@ -9,16 +9,21 @@ ACLOCAL_AMFLAGS=	-I m4
 #     lib/crypto/crypto_scrypt_smix_sse2.c
 # which require special compiler flags and are thus compiled as separate
 # libraries.  See test_scrypt for an example.
-crypto_scrypt_files=	lib/crypto/crypto_scrypt.c			\
-			lib/crypto/crypto_scrypt.h			\
-			lib/crypto/crypto_scrypt_smix.c			\
+#
+# crypto_scrypt() does not require aesni or rdrand, but we need to include
+# the relevant cpusupport_x86 files so that cpusupport can link to them.
+crypto_scrypt_files=	lib/crypto/crypto_scrypt_smix.c			\
 			lib/crypto/crypto_scrypt_smix.h			\
 			lib/crypto/crypto_scrypt_smix_sse2.h		\
-			lib/platform.h					\
+			lib-platform/platform.h				\
+			lib-platform/crypto/crypto_scrypt.c		\
+			lib-platform/crypto/crypto_scrypt.h		\
 			libcperciva/alg/sha256.c			\
 			libcperciva/alg/sha256.h			\
 			libcperciva/alg/sha256_shani.h			\
 			libcperciva/cpusupport/cpusupport.h		\
+			libcperciva/cpusupport/cpusupport_x86_aesni.c	\
+			libcperciva/cpusupport/cpusupport_x86_rdrand.c	\
 			libcperciva/cpusupport/cpusupport_x86_shani.c	\
 			libcperciva/cpusupport/cpusupport_x86_sse2.c	\
 			libcperciva/cpusupport/cpusupport_x86_ssse3.c	\
@@ -33,10 +38,8 @@ scrypt_SOURCES=		main.c					\
 			lib/scryptenc/scryptenc.h		\
 			lib/scryptenc/scryptenc_cpuperf.c	\
 			lib/scryptenc/scryptenc_cpuperf.h	\
-			lib/util/memlimit.c			\
-			lib/util/memlimit.h			\
-			libcperciva/cpusupport/cpusupport_x86_aesni.c \
-			libcperciva/cpusupport/cpusupport_x86_rdrand.c \
+			lib-platform/util/memlimit.c		\
+			lib-platform/util/memlimit.h		\
 			libcperciva/crypto/crypto_aes.c		\
 			libcperciva/crypto/crypto_aes.h		\
 			libcperciva/crypto/crypto_aes_aesni.h	\
@@ -60,12 +63,15 @@ scrypt_SOURCES=		main.c					\
 			libcperciva/util/parsenum.h		\
 			libcperciva/util/readpass.c		\
 			libcperciva/util/readpass.h		\
+			libcperciva/util/readpass_file.c	\
 			libcperciva/util/sysendian.h
 
 AM_CPPFLAGS=		-I$(srcdir)/lib				\
 			-I$(srcdir)/lib/crypto			\
 			-I$(srcdir)/lib/scryptenc		\
-			-I$(srcdir)/lib/util			\
+			-I$(srcdir)/lib-platform		\
+			-I$(srcdir)/lib-platform/crypto		\
+			-I$(srcdir)/lib-platform/util		\
 			-I$(srcdir)/libcperciva/alg		\
 			-I$(srcdir)/libcperciva/cpusupport	\
 			-I$(srcdir)/libcperciva/crypto		\

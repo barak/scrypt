@@ -63,6 +63,11 @@
 #undef HW_USERMEM
 #endif
 
+/* Is RLIMIT_DATA relevant on this platform? */
+#if !defined(HAVE_MMAP) || defined(__OpenBSD__)
+#define USE_RLIMIT_DATA
+#endif
+
 #ifdef CTL_HW
 static int
 memlimit_sysctl_hw(size_t * memlimit, int mibleaf)
@@ -167,7 +172,7 @@ memlimit_rlimit(size_t * memlimit)
 		memrlimit = (uint64_t)rl.rlim_cur;
 #endif
 
-#ifndef HAVE_MMAP
+#ifdef USE_RLIMIT_DATA
 	/* ... RLIMIT_DATA (if we're not using mmap)... */
 	if (getrlimit(RLIMIT_DATA, &rl))
 		return (1);
@@ -250,9 +255,10 @@ memlimit_sysconf(size_t * memlimit)
 
 /**
  * memtouse(maxmem, maxmemfrac, memlimit):
- * Examine the system and return via memlimit the amount of RAM which should
- * be used -- the specified fraction of the available RAM, but no more than
- * maxmem, and no less than 1MiB.
+ * Examine the system and return the amount of RAM which should be
+ * used in ${memlimit}.  This value should be the specified
+ * ${maxmemfrac} fraction of available RAM, but no more than
+ * ${maxmem} and no less than 1 MiB.
  */
 int
 memtouse(size_t maxmem, double maxmemfrac, size_t * memlimit)
@@ -325,7 +331,7 @@ memtouse(size_t maxmem, double maxmemfrac, size_t * memlimit)
 	/* Only use the specified fraction of the available memory. */
 	if ((maxmemfrac > 0.5) || (maxmemfrac == 0.0))
 		maxmemfrac = 0.5;
-	memavail = (size_t)(maxmemfrac * memlimit_min);
+	memavail = (size_t)(maxmemfrac * (double)memlimit_min);
 
 	/* Don't use more than the specified maximum. */
 	if ((maxmem > 0) && (memavail > maxmem))

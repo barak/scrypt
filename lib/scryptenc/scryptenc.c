@@ -41,6 +41,7 @@
 #include "insecure_memzero.h"
 #include "sha256.h"
 #include "sysendian.h"
+#include "warnp.h"
 
 #include "crypto_scrypt.h"
 #include "memlimit.h"
@@ -54,7 +55,11 @@ static int pickparams(size_t, double, double,
     int *, uint32_t *, uint32_t *, int);
 static int checkparams(size_t, double, double, int, uint32_t, uint32_t, int,
     int);
+#ifdef POSIXFAIL_ABSTRACT_DECLARATOR
+static int scryptdec_file_load_header(FILE * infile, uint8_t header[static 96]);
+#else
 static int scryptdec_file_load_header(FILE *, uint8_t [static 96]);
+#endif
 
 struct scryptdec_file_cookie {
 	FILE *	infile;		/* This is not owned by this cookie. */
@@ -68,7 +73,7 @@ display_params(int logN, uint32_t r, uint32_t p, size_t memlimit,
 {
 	uint64_t N = (uint64_t)(1) << logN;
 	uint64_t mem_minimum = 128 * r * N;
-	double expected_seconds = opps > 0 ? 4 * N * p / opps : 0;
+	double expected_seconds = opps > 0 ? (double)(4 * N * p) / opps : 0;
 	char * human_memlimit = humansize(memlimit);
 	char * human_mem_minimum = humansize(mem_minimum);
 
@@ -101,11 +106,12 @@ pickparams(size_t maxmem, double maxmemfrac, double maxtime,
 	double opps;
 	double opslimit;
 	double maxN, maxrp;
+	uint64_t checkN;
 	int rc;
 
 	/* Figure out how much memory to use. */
 	if (memtouse(maxmem, maxmemfrac, &memlimit))
-		return (1);
+		return (SCRYPT_ELIMIT);
 
 	/* Figure out how fast the CPU is. */
 	if ((rc = scryptenc_cpuperf(&opps)) != 0)
@@ -133,19 +139,27 @@ pickparams(size_t maxmem, double maxmemfrac, double maxtime,
 		*p = 1;
 		maxN = opslimit / (*r * 4);
 		for (*logN = 1; *logN < 63; *logN += 1) {
-			if ((uint64_t)(1) << *logN > maxN / 2)
+			checkN = (uint64_t)(1) << *logN;
+
+			/*
+			 * Find the largest power of two <= maxN, which is
+			 * also the least power of two > maxN/2.
+			 */
+			if ((double)checkN > maxN / 2)
 				break;
 		}
 	} else {
 		/* Set N based on the memory limit. */
-		maxN = memlimit / (*r * 128);
+		maxN = (double)(memlimit / (*r * 128));
 		for (*logN = 1; *logN < 63; *logN += 1) {
-			if ((uint64_t)(1) << *logN > maxN / 2)
+			checkN = (uint64_t)(1) << *logN;
+			if ((double)checkN > maxN / 2)
 				break;
 		}
 
 		/* Choose p based on the CPU limit. */
-		maxrp = (opslimit / 4) / ((uint64_t)(1) << *logN);
+		checkN = (uint64_t)(1) << *logN;
+		maxrp = (opslimit / 4) / (double)checkN;
 		if (maxrp > 0x3fffffff)
 			maxrp = 0x3fffffff;
 		*p = (uint32_t)(maxrp) / *r;
@@ -155,7 +169,7 @@ pickparams(size_t maxmem, double maxmemfrac, double maxtime,
 		display_params(*logN, *r, *p, memlimit, opps, maxtime);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 }
 
 static int
@@ -170,17 +184,17 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 
 	/* Sanity-check values. */
 	if ((logN < 1) || (logN > 63))
-		return (7);
+		return (SCRYPT_EINVAL);
 	if ((uint64_t)(r) * (uint64_t)(p) >= 0x40000000)
-		return (7);
+		return (SCRYPT_EINVAL);
 	if ((r == 0) || (p == 0))
-		return (7);
+		return (SCRYPT_EINVAL);
 
 	/* Are we forcing decryption, regardless of resource limits? */
 	if (!force) {
 		/* Figure out the maximum amount of memory we can use. */
 		if (memtouse(maxmem, maxmemfrac, &memlimit))
-			return (1);
+			return (SCRYPT_ELIMIT);
 
 		/* Figure out how fast the CPU is. */
 		if ((rc = scryptenc_cpuperf(&opps)) != 0)
@@ -190,9 +204,9 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 		/* Check limits. */
 		N = (uint64_t)(1) << logN;
 		if ((memlimit / N) / r < 128)
-			return (9);
-		if (((opslimit / N) / r) / p < 4)
-			return (10);
+			return (SCRYPT_ETOOBIG);
+		if (((opslimit / (double)N) / r) / p < 4)
+			return (SCRYPT_ETOOSLOW);
 	} else {
 		/* We have no limit. */
 		memlimit = 0;
@@ -203,7 +217,7 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 		display_params(logN, r, p, memlimit, opps, maxtime);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 }
 
 /*
@@ -213,42 +227,66 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 static int
 scryptenc_setup(uint8_t header[96], uint8_t dk[64],
     const uint8_t * passwd, size_t passwdlen,
-    size_t maxmem, double maxmemfrac, double maxtime, int verbose)
+    struct scryptenc_params * P, int verbose, int force)
 {
 	uint8_t salt[32];
 	uint8_t hbuf[32];
-	int logN;
 	uint64_t N;
-	uint32_t r;
-	uint32_t p;
 	SHA256_CTX ctx;
 	uint8_t * key_hmac = &dk[32];
 	HMAC_SHA256_CTX hctx;
 	int rc;
 
-	/* Pick values for N, r, p. */
-	if ((rc = pickparams(maxmem, maxmemfrac, maxtime,
-	    &logN, &r, &p, verbose)) != 0)
-		return (rc);
-	N = (uint64_t)(1) << logN;
+	/* Determine parameters. */
+	if (P->logN != 0) {
+		/* Check logN, r, p. */
+		if ((rc = checkparams(P->maxmem, P->maxmemfrac, P->maxtime,
+		    P->logN, P->r, P->p, verbose, force)) != 0) {
+			/* Warn about resource limit, but suppress the error. */
+			if (rc == SCRYPT_ETOOBIG) {
+				warn0("Warning: Explicit parameters"
+				    " might exceed memory limit");
+				rc = 0;
+			}
+			if (rc == SCRYPT_ETOOSLOW) {
+				warn0("Warning: Explicit parameters"
+				    " might exceed time limit");
+				rc = 0;
+			}
+
+			/* Provide a more meaningful error message. */
+			if (rc == SCRYPT_EINVAL)
+				rc = SCRYPT_EPARAM;
+
+			/* Bail if we haven't suppressed the error. */
+			if (rc != 0)
+				return (rc);
+		}
+	} else {
+		/* Pick values for N, r, p. */
+		if ((rc = pickparams(P->maxmem, P->maxmemfrac, P->maxtime,
+		    &P->logN, &P->r, &P->p, verbose)) != 0)
+			return (rc);
+	}
+	N = (uint64_t)(1) << P->logN;
 
 	/* Sanity check. */
-	assert((logN > 0) && (logN < 256));
+	assert((P->logN > 0) && (P->logN < 256));
 
 	/* Get some salt. */
 	if (crypto_entropy_read(salt, 32))
-		return (4);
+		return (SCRYPT_ESALT);
 
 	/* Generate the derived keys. */
-	if (crypto_scrypt(passwd, passwdlen, salt, 32, N, r, p, dk, 64))
-		return (3);
+	if (crypto_scrypt(passwd, passwdlen, salt, 32, N, P->r, P->p, dk, 64))
+		return (SCRYPT_EKEY);
 
 	/* Construct the file header. */
 	memcpy(header, "scrypt", 6);
 	header[6] = 0;
-	header[7] = logN & 0xff;
-	be32enc(&header[8], r);
-	be32enc(&header[12], p);
+	header[7] = P->logN & 0xff;
+	be32enc(&header[8], P->r);
+	be32enc(&header[12], P->p);
 	memcpy(&header[16], salt, 32);
 
 	/* Add header checksum. */
@@ -264,7 +302,7 @@ scryptenc_setup(uint8_t header[96], uint8_t dk[64],
 	memcpy(&header[64], hbuf, 32);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 }
 
 /**
@@ -293,7 +331,7 @@ scryptdec_file_printparams(FILE * infile)
 	display_params(logN, r, p, 0, 0, 0);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err0:
 	/* Failure! */
@@ -307,14 +345,11 @@ err0:
 static int
 scryptdec_setup(const uint8_t header[96], uint8_t dk[64],
     const uint8_t * passwd, size_t passwdlen,
-    size_t maxmem, double maxmemfrac, double maxtime, int verbose,
+    struct scryptenc_params * P, int verbose,
     int force)
 {
 	uint8_t salt[32];
 	uint8_t hbuf[32];
-	int logN;
-	uint32_t r;
-	uint32_t p;
 	uint64_t N;
 	SHA256_CTX ctx;
 	uint8_t * key_hmac = &dk[32];
@@ -322,9 +357,9 @@ scryptdec_setup(const uint8_t header[96], uint8_t dk[64],
 	int rc;
 
 	/* Parse N, r, p, salt. */
-	logN = header[7];
-	r = be32dec(&header[8]);
-	p = be32dec(&header[12]);
+	P->logN = header[7];
+	P->r = be32dec(&header[8]);
+	P->p = be32dec(&header[12]);
 	memcpy(salt, &header[16], 32);
 
 	/* Verify header checksum. */
@@ -332,43 +367,45 @@ scryptdec_setup(const uint8_t header[96], uint8_t dk[64],
 	SHA256_Update(&ctx, header, 48);
 	SHA256_Final(hbuf, &ctx);
 	if (crypto_verify_bytes(&header[48], hbuf, 16))
-		return (7);
+		return (SCRYPT_EINVAL);
 
 	/*
 	 * Check whether the provided parameters are valid and whether the
 	 * key derivation function can be computed within the allowed memory
 	 * and CPU time, unless the user chose to disable this test.
 	 */
-	if ((rc = checkparams(maxmem, maxmemfrac, maxtime, logN, r, p,
-	    verbose, force)) != 0)
+	if ((rc = checkparams(P->maxmem, P->maxmemfrac, P->maxtime, P->logN,
+	    P->r, P->p, verbose, force)) != 0)
 		return (rc);
 
 	/* Compute the derived keys. */
-	N = (uint64_t)(1) << logN;
-	if (crypto_scrypt(passwd, passwdlen, salt, 32, N, r, p, dk, 64))
-		return (3);
+	N = (uint64_t)(1) << P->logN;
+	if (crypto_scrypt(passwd, passwdlen, salt, 32, N, P->r, P->p, dk, 64))
+		return (SCRYPT_EKEY);
 
 	/* Check header signature (i.e., verify password). */
 	HMAC_SHA256_Init(&hctx, key_hmac, 32);
 	HMAC_SHA256_Update(&hctx, header, 64);
 	HMAC_SHA256_Final(hbuf, &hctx);
 	if (crypto_verify_bytes(hbuf, &header[64], 32))
-		return (11);
+		return (SCRYPT_EPASS);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 }
 
 /**
  * scryptenc_buf(inbuf, inbuflen, outbuf, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose):
- * Encrypt inbuflen bytes from inbuf, writing the resulting inbuflen + 128
- * bytes to outbuf.
+ *     params, verbose, force):
+ * Encrypt ${inbuflen} bytes from ${inbuf}, writing the resulting
+ * ${inbuflen} + 128 bytes to ${outbuf}.  The explicit parameters
+ * within ${params} must be zero or must all be non-zero.  Return
+ * the explicit parameters used via ${params}.
  */
 int
 scryptenc_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
     const uint8_t * passwd, size_t passwdlen,
-    size_t maxmem, double maxmemfrac, double maxtime, int verbose)
+    struct scryptenc_params * P, int verbose, int force)
 {
 	uint8_t dk[64];
 	uint8_t hbuf[32];
@@ -380,9 +417,13 @@ scryptenc_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 	struct crypto_aes_key * key_enc_exp;
 	struct crypto_aesctr * AES;
 
+	/* The explicit parameters must be zero, or all non-zero. */
+	assert(((P->logN == 0) && (P->r == 0) && (P->p == 0)) ||
+	    ((P->logN != 0) && (P->r != 0) && (P->p != 0)));
+
 	/* Generate the header and derived key. */
 	if ((rc = scryptenc_setup(header, dk, passwd, passwdlen,
-	    maxmem, maxmemfrac, maxtime, verbose)) != 0)
+	    P, verbose, force)) != 0)
 		goto err1;
 
 	/* Copy header into output buffer. */
@@ -390,12 +431,12 @@ scryptenc_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 
 	/* Encrypt data. */
 	if ((key_enc_exp = crypto_aes_key_expand(key_enc, 32)) == NULL) {
-		rc = 5;
+		rc = SCRYPT_EOPENSSL;
 		goto err1;
 	}
 	if ((AES = crypto_aesctr_init(key_enc_exp, 0)) == NULL) {
 		crypto_aes_key_free(key_enc_exp);
-		rc = 6;
+		rc = SCRYPT_ENOMEM;
 		goto err1;
 	}
 	crypto_aesctr_stream(AES, inbuf, &outbuf[96], inbuflen);
@@ -412,7 +453,7 @@ scryptenc_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 	insecure_memzero(dk, 64);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err1:
 	insecure_memzero(dk, 64);
@@ -423,16 +464,18 @@ err1:
 
 /**
  * scryptdec_buf(inbuf, inbuflen, outbuf, outlen, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose, force):
- * Decrypt inbuflen bytes from inbuf, writing the result into outbuf and the
- * decrypted data length to outlen.  The allocated length of outbuf must
- * be at least inbuflen.  If ${force} is 1, do not check whether
- * decryption will exceed the estimated available memory or time.
+ *     params, verbose, force):
+ * Decrypt ${inbuflen} bytes from ${inbuf}, writing the result into ${outbuf}
+ * and the decrypted data length to ${outlen}.  The allocated length of
+ * ${outbuf} must be at least ${inbuflen}.  If ${force} is 1, do not check
+ * whether decryption will exceed the estimated available memory or time.
+ * The explicit parameters within ${params} must be zero.  Return the explicit
+ * parameters used via ${params}.
  */
 int
 scryptdec_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
     size_t * outlen, const uint8_t * passwd, size_t passwdlen,
-    size_t maxmem, double maxmemfrac, double maxtime, int verbose,
+    struct scryptenc_params * P, int verbose,
     int force)
 {
 	uint8_t hbuf[32];
@@ -444,40 +487,43 @@ scryptdec_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 	struct crypto_aes_key * key_enc_exp;
 	struct crypto_aesctr * AES;
 
+	/* The explicit parameters must be zero. */
+	assert((P->logN == 0) && (P->r == 0) && (P->p == 0));
+
 	/*
 	 * All versions of the scrypt format will start with "scrypt" and
 	 * have at least 7 bytes of header.
 	 */
 	if ((inbuflen < 7) || (memcmp(inbuf, "scrypt", 6) != 0)) {
-		rc = 7;
+		rc = SCRYPT_EINVAL;
 		goto err0;
 	}
 
 	/* Check the format. */
 	if (inbuf[6] != 0) {
-		rc = 8;
+		rc = SCRYPT_EVERSION;
 		goto err0;
 	}
 
 	/* We must have at least 128 bytes. */
 	if (inbuflen < 128) {
-		rc = 7;
+		rc = SCRYPT_EINVAL;
 		goto err0;
 	}
 
 	/* Parse the header and generate derived keys. */
 	if ((rc = scryptdec_setup(inbuf, dk, passwd, passwdlen,
-	    maxmem, maxmemfrac, maxtime, verbose, force)) != 0)
+	    P, verbose, force)) != 0)
 		goto err1;
 
 	/* Decrypt data. */
 	if ((key_enc_exp = crypto_aes_key_expand(key_enc, 32)) == NULL) {
-		rc = 5;
+		rc = SCRYPT_EOPENSSL;
 		goto err1;
 	}
 	if ((AES = crypto_aesctr_init(key_enc_exp, 0)) == NULL) {
 		crypto_aes_key_free(key_enc_exp);
-		rc = 6;
+		rc = SCRYPT_ENOMEM;
 		goto err1;
 	}
 	crypto_aesctr_stream(AES, &inbuf[96], outbuf, inbuflen - 128);
@@ -490,7 +536,7 @@ scryptdec_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 	HMAC_SHA256_Update(&hctx, inbuf, inbuflen - 32);
 	HMAC_SHA256_Final(hbuf, &hctx);
 	if (crypto_verify_bytes(hbuf, &inbuf[inbuflen - 32], 32)) {
-		rc = 7;
+		rc = SCRYPT_EINVAL;
 		goto err1;
 	}
 
@@ -498,7 +544,7 @@ scryptdec_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
 	insecure_memzero(dk, 64);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err1:
 	insecure_memzero(dk, 64);
@@ -508,15 +554,15 @@ err0:
 }
 
 /**
- * scryptenc_file(infile, outfile, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose):
- * Read a stream from infile and encrypt it, writing the resulting stream to
- * outfile.
+ * scryptenc_file(infile, outfile, passwd, passwdlen, params, verbose, force):
+ * Read a stream from ${infile} and encrypt it, writing the resulting stream
+ * to ${outfile}.  The explicit parameters within ${params} must be zero
+ * or must all be non-zero.  Return the explicit parameters used via ${params}.
  */
 int
 scryptenc_file(FILE * infile, FILE * outfile,
     const uint8_t * passwd, size_t passwdlen,
-    size_t maxmem, double maxmemfrac, double maxtime, int verbose)
+    struct scryptenc_params * P, int verbose, int force)
 {
 	uint8_t buf[ENCBLOCK];
 	uint8_t dk[64];
@@ -530,16 +576,20 @@ scryptenc_file(FILE * infile, FILE * outfile,
 	struct crypto_aesctr * AES;
 	int rc;
 
+	/* The explicit parameters must be zero, or all non-zero. */
+	assert(((P->logN == 0) && (P->r == 0) && (P->p == 0)) ||
+	    ((P->logN != 0) && (P->r != 0) && (P->p != 0)));
+
 	/* Generate the header and derived key. */
 	if ((rc = scryptenc_setup(header, dk, passwd, passwdlen,
-	    maxmem, maxmemfrac, maxtime, verbose)) != 0)
+	    P, verbose, force)) != 0)
 		goto err1;
 
 	/* Hash and write the header. */
 	HMAC_SHA256_Init(&hctx, key_hmac, 32);
 	HMAC_SHA256_Update(&hctx, header, 96);
 	if (fwrite(header, 96, 1, outfile) != 1) {
-		rc = 12;
+		rc = SCRYPT_EWRFILE;
 		goto err1;
 	}
 
@@ -548,12 +598,12 @@ scryptenc_file(FILE * infile, FILE * outfile,
 	 * data as it is produced.
 	 */
 	if ((key_enc_exp = crypto_aes_key_expand(key_enc, 32)) == NULL) {
-		rc = 5;
+		rc = SCRYPT_EOPENSSL;
 		goto err1;
 	}
 	if ((AES = crypto_aesctr_init(key_enc_exp, 0)) == NULL) {
 		crypto_aes_key_free(key_enc_exp);
-		rc = 6;
+		rc = SCRYPT_ENOMEM;
 		goto err1;
 	}
 	do {
@@ -563,7 +613,7 @@ scryptenc_file(FILE * infile, FILE * outfile,
 		HMAC_SHA256_Update(&hctx, buf, readlen);
 		if (fwrite(buf, 1, readlen, outfile) < readlen) {
 			crypto_aesctr_free(AES);
-			rc = 12;
+			rc = SCRYPT_EWRFILE;
 			goto err1;
 		}
 	} while (1);
@@ -572,14 +622,14 @@ scryptenc_file(FILE * infile, FILE * outfile,
 
 	/* Did we exit the loop due to a read error? */
 	if (ferror(infile)) {
-		rc = 13;
+		rc = SCRYPT_ERDFILE;
 		goto err1;
 	}
 
 	/* Compute the final HMAC and output it. */
 	HMAC_SHA256_Final(hbuf, &hctx);
 	if (fwrite(hbuf, 32, 1, outfile) != 1) {
-		rc = 12;
+		rc = SCRYPT_EWRFILE;
 		goto err1;
 	}
 
@@ -587,7 +637,7 @@ scryptenc_file(FILE * infile, FILE * outfile,
 	insecure_memzero(dk, 64);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err1:
 	insecure_memzero(dk, 64);
@@ -629,21 +679,21 @@ scryptdec_file_load_header(FILE * infile, uint8_t header[static 96])
 	 */
 	if (fread(header, 7, 1, infile) < 1) {
 		if (ferror(infile)) {
-			rc = 13;
+			rc = SCRYPT_ERDFILE;
 			goto err0;
 		} else {
-			rc = 7;
+			rc = SCRYPT_EINVAL;
 			goto err0;
 		}
 	}
 
 	/* Do we have the right magic? */
 	if (memcmp(header, "scrypt", 6)) {
-		rc = 7;
+		rc = SCRYPT_EINVAL;
 		goto err0;
 	}
 	if (header[6] != 0) {
-		rc = 8;
+		rc = SCRYPT_EVERSION;
 		goto err0;
 	}
 
@@ -653,16 +703,16 @@ scryptdec_file_load_header(FILE * infile, uint8_t header[static 96])
 	 */
 	if (fread(&header[7], 89, 1, infile) < 1) {
 		if (ferror(infile)) {
-			rc = 13;
+			rc = SCRYPT_ERDFILE;
 			goto err0;
 		} else {
-			rc = 7;
+			rc = SCRYPT_EINVAL;
 			goto err0;
 		}
 	}
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err0:
 	/* Failure! */
@@ -670,23 +720,27 @@ err0:
 }
 
 /**
- * scryptdec_file_prep(infile, passwd, passwdlen, maxmem, maxmemfrac,
- *     maxtime, force, cookie):
+ * scryptdec_file_prep(infile, passwd, passwdlen, params, force, cookie):
  * Prepare to decrypt ${infile}, including checking the passphrase.  Allocate
  * a cookie at ${cookie}.  After calling this function, ${infile} should not
- * be modified until the decryption is completed by scryptdec_file_copy.
+ * be modified until the decryption is completed by scryptdec_file_copy.  The
+ * explicit parameters within ${params} must be zero.  Return the explicit
+ * parameters to be used via ${params}.
  */
 int
 scryptdec_file_prep(FILE * infile, const uint8_t * passwd,
-    size_t passwdlen, size_t maxmem, double maxmemfrac, double maxtime,
+    size_t passwdlen, struct scryptenc_params * P,
     int verbose, int force, struct scryptdec_file_cookie ** cookie)
 {
 	struct scryptdec_file_cookie * C;
 	int rc;
 
+	/* The explicit parameters must be zero. */
+	assert((P->logN == 0) && (P->r == 0) && (P->p == 0));
+
 	/* Allocate the cookie. */
 	if ((C = malloc(sizeof(struct scryptdec_file_cookie))) == NULL)
-		return (6);
+		return (SCRYPT_ENOMEM);
 	C->infile = infile;
 
 	/* Load the header. */
@@ -695,14 +749,14 @@ scryptdec_file_prep(FILE * infile, const uint8_t * passwd,
 
 	/* Parse the header and generate derived keys. */
 	if ((rc = scryptdec_setup(C->header, C->dk, passwd, passwdlen,
-	    maxmem, maxmemfrac, maxtime, verbose, force)) != 0)
+	    P, verbose, force)) != 0)
 		goto err1;
 
 	/* Set cookie for calling function. */
 	*cookie = C;
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err1:
 	scryptdec_file_cookie_free(C);
@@ -750,12 +804,12 @@ scryptdec_file_copy(struct scryptdec_file_cookie * C, FILE * outfile)
 	 * if that final 32 bytes is the correct signature.
 	 */
 	if ((key_enc_exp = crypto_aes_key_expand(key_enc, 32)) == NULL) {
-		rc = 5;
+		rc = SCRYPT_EOPENSSL;
 		goto err0;
 	}
 	if ((AES = crypto_aesctr_init(key_enc_exp, 0)) == NULL) {
 		crypto_aes_key_free(key_enc_exp);
-		rc = 6;
+		rc = SCRYPT_ENOMEM;
 		goto err0;
 	}
 	do {
@@ -775,7 +829,7 @@ scryptdec_file_copy(struct scryptdec_file_cookie * C, FILE * outfile)
 		crypto_aesctr_stream(AES, buf, buf, buflen - 32);
 		if (fwrite(buf, 1, buflen - 32, outfile) < buflen - 32) {
 			crypto_aesctr_free(AES);
-			rc = 12;
+			rc = SCRYPT_EWRFILE;
 			goto err0;
 		}
 
@@ -788,25 +842,25 @@ scryptdec_file_copy(struct scryptdec_file_cookie * C, FILE * outfile)
 
 	/* Did we exit the loop due to a read error? */
 	if (ferror(C->infile)) {
-		rc = 13;
+		rc = SCRYPT_ERDFILE;
 		goto err0;
 	}
 
 	/* Did we read enough data that we *might* have a valid signature? */
 	if (buflen < 32) {
-		rc = 7;
+		rc = SCRYPT_EINVAL;
 		goto err0;
 	}
 
 	/* Verify signature. */
 	HMAC_SHA256_Final(hbuf, &hctx);
 	if (crypto_verify_bytes(hbuf, buf, 32)) {
-		rc = 7;
+		rc = SCRYPT_EINVAL;
 		goto err0;
 	}
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err0:
 	/* Failure! */
@@ -814,23 +868,27 @@ err0:
 }
 
 /**
- * scryptdec_file(infile, outfile, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose, force):
- * Read a stream from infile and decrypt it, writing the resulting stream to
- * outfile.  If ${force} is 1, do not check whether decryption
- * will exceed the estimated available memory or time.
+ * scryptdec_file(infile, outfile, passwd, passwdlen, params, verbose, force):
+ * Read a stream from ${infile} and decrypt it, writing the resulting stream
+ * to ${outfile}.  If ${force} is 1, do not check whether decryption
+ * will exceed the estimated available memory or time.  The explicit
+ * parameters within ${params} must be zero.  Return the explicit parameters
+ * used via ${params}.
  */
 int
 scryptdec_file(FILE * infile, FILE * outfile, const uint8_t * passwd,
-    size_t passwdlen, size_t maxmem, double maxmemfrac, double maxtime,
+    size_t passwdlen, struct scryptenc_params * P,
     int verbose, int force)
 {
 	struct scryptdec_file_cookie * C;
 	int rc;
 
+	/* The explicit parameters must be zero. */
+	assert((P->logN == 0) && (P->r == 0) && (P->p == 0));
+
 	/* Check header, including passphrase. */
-	if ((rc = scryptdec_file_prep(infile, passwd, passwdlen, maxmem,
-	    maxmemfrac, maxtime, verbose, force, &C)) != 0)
+	if ((rc = scryptdec_file_prep(infile, passwd, passwdlen, P,
+	    verbose, force, &C)) != 0)
 		goto err0;
 
 	/* Copy unencrypted data to outfile. */
@@ -841,7 +899,7 @@ scryptdec_file(FILE * infile, FILE * outfile, const uint8_t * passwd,
 	scryptdec_file_cookie_free(C);
 
 	/* Success! */
-	return (0);
+	return (SCRYPT_OK);
 
 err1:
 	scryptdec_file_cookie_free(C);

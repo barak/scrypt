@@ -33,6 +33,18 @@
 #ifdef __clang__
 #warning Working around bug in LLVM optimizer
 #warning For more details see https://bugs.llvm.org/show_bug.cgi?id=27190
+#define GETOPT_USE_COMPUTED_GOTO
+#endif
+
+/* Work around broken <setjmp.h> header on Solaris. */
+#if defined(__GNUC__) && (defined(sun) || defined(__sun))
+#warning Working around broken <setjmp.h> header on Solaris
+#define GETOPT_USE_COMPUTED_GOTO
+#endif
+
+/* Select the method of performing local jumps. */
+#ifdef GETOPT_USE_COMPUTED_GOTO
+/* Workaround with computed goto. */
 #define DO_SETJMP _DO_SETJMP(__LINE__)
 #define _DO_SETJMP(x) __DO_SETJMP(x)
 #define __DO_SETJMP(x)							\
@@ -41,6 +53,7 @@
 #define DO_LONGJMP							\
 	goto *getopt_initloop
 #else
+/* Intended code, for fully C99-compliant systems. */
 #define DO_SETJMP							\
 	sigjmp_buf getopt_initloop;					\
 	if (!getopt_initialized)					\
@@ -82,9 +95,9 @@ extern int optind, opterr, optreset;
  */
 #define GETOPT_SWITCH(ch)						\
 	volatile size_t getopt_ln_min = __LINE__;			\
-	volatile size_t getopt_ln = getopt_ln_min - 1;		\
+	volatile size_t getopt_ln = getopt_ln_min - 1;			\
 	volatile int getopt_default_missing = 0;			\
-	DO_SETJMP;						\
+	DO_SETJMP;							\
 	switch (getopt_initialized ? getopt_lookup(ch) + getopt_ln_min : getopt_ln++)
 
 /**

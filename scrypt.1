@@ -31,10 +31,15 @@
 .Nm
 .Brq Cm enc | Cm dec | Cm info
 .Op Fl f
+.Op Fl -logN Ar value
 .Op Fl M Ar maxmem
 .Op Fl m Ar maxmemfrac
-.Op Fl t Ar maxtime
 .Op Fl P
+.Op Fl p Ar value
+.Op Fl -passphrase Ar method:arg
+.Op Fl r Ar value
+.Op Fl t Ar maxtime
+.Op Fl v
 .Ar infile
 .Op Ar outfile
 .Nm
@@ -79,6 +84,22 @@ does not print any prompts, and reads a passphrase from stdin.
 .It Fl f
 Force the decryption to proceed even if it is anticipated to
 require an excessive amount of memory or CPU time.
+.It Fl -logN Ar value
+Set the work parameter N to
+.Pf 2^ Ar value .
+If
+.Fl -logN
+is set,
+.Fl r
+and
+.Fl p
+must also be set.  If such explicit parameters are given, the
+resource limits set by
+.Fl M ,
+.Fl m ,
+and
+.Fl t
+are not enforced.
 .It Fl M Ar maxmem
 Use at most
 .Ar maxmem
@@ -87,15 +108,80 @@ bytes of RAM to compute the derived encryption key.
 Use at most the fraction
 .Ar maxmemfrac
 of the available RAM to compute the derived encryption key.
-.It Fl t Ar maxtime
-Use at most
-.Ar maxtime
-seconds of CPU time to compute the derived encryption key.
 .It Fl P
 Always read passphrase from stdin, and do so only once even
 when encrypting.  This cannot be used if
 .Ar infile
 is also stdin (aka '-').
+.It Fl p Ar value
+Set the work parameter p to
+.Ar value .
+If
+.Fl p
+is set,
+.Fl -logN
+and
+.Fl r
+must also be set.  If such explicit parameters are given, the
+resource limits set by
+.Fl M ,
+.Fl m ,
+and
+.Fl t
+are not enforced.
+.It Fl -passphrase Ar method:arg
+Read the passphrase using the specified method.
+.Bl -tag -width aa
+.It Ar dev:tty-stdin
+Attempt to read the passphrase from /dev/tty; if that fails, read
+it from stdin.  This is the default behaviour.
+.It Ar dev:stdin-once
+Attempt to read the passphrase from stdin, and do so only once
+even when encrypting.  This cannot be used if
+.Ar infile
+is also stdin (aka '-').
+.It Ar dev:tty-once
+Attempt to read the passphrase from /dev/tty, and do so only once
+even when encrypting.
+.It Ar env:VAR
+Read the passphrase from the environment variable specified by
+.Ar VAR .
+.Pp
+.Bf Em
+Storing a passphrase in an environment variable may be a security risk.
+.Ef
+Only use this option if you are certain that you know what you are doing.
+.It Ar file:FILENAME
+Read the passphrase from the file specified by
+.Ar FILENAME .
+.Pp
+.Bf Em
+Storing a passphrase in a file may be a security risk.
+.Ef
+Only use this option if you are certain that you know what you are doing.
+.El
+.It Fl r Ar value
+Set the work parameter r to
+.Ar value .
+If
+.Fl r
+is set,
+.Fl -logN
+and
+.Fl p
+must also be set.  If such explicit parameters are given, the
+resource limits set by
+.Fl M ,
+.Fl m ,
+and
+.Fl t
+are not enforced.
+.It Fl t Ar maxtime
+Use at most
+.Ar maxtime
+seconds of CPU time to compute the derived encryption key.
+.It Fl -v
+Print encryption parameters (N, r, p) and memory/cpu limits.
 .It Fl -version
 Print version of scrypt, and exit.
 .El
@@ -124,12 +210,33 @@ users should direct the output to a safe location and
 check the exit status of
 .Nm
 before using the decrypted data.
+.Sh ALGORITHM PARAMETERS
+The scrypt algorithm has three tuneable work parameters: N, r, p.
+When decrypting, scrypt will always use the values specified by
+the encryption header.  When encrypting, scrypt will choose
+appropriate values based on your system's speed and memory
+(influenced by
+.Fl M ,
+.Fl m ,
+and/or
+.Fl t ) ,
+unless you specify explicit parameters via
+.Fl -logN ,
+.Fl p ,
+.Fl r .
 .Sh SEE ALSO
 .Rs
 .%A "Colin Percival"
 .%T "Stronger Key Derivation via Sequential Memory-Hard Functions"
-.%O "Presented at BSDCan'09"
+.%R "BSDCan'09"
 .%D "May 2009"
+.Re
+.Rs
+.%A "Colin Percival"
+.%A "Simon Josefsson"
+.%T "The scrypt Password-Based Key Derivation Function"
+.%R "IETF RFC 7914"
+.%D "August 2016"
 .Re
 .Sh HISTORY
 The
@@ -142,5 +249,5 @@ The
 .Nm
 key derivation function was invented in March 2009 by Colin
 Percival in order to allow key files from the
-.Nm tarsnap
+.Nm Tarsnap
 backup system to be passphrase protected.

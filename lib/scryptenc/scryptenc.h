@@ -62,55 +62,69 @@
  * compared to the computed limits and an error is returned if decrypting
  * the data would take too much memory or CPU time.
  */
-/**
- * Return codes from scrypt(enc|dec)_(buf|file):
- * 0	success
- * 1	getrlimit or sysctl(hw.usermem) failed
- * 2	clock_getres or clock_gettime failed
- * 3	error computing derived key
- * 4	could not read salt from /dev/urandom
- * 5	error in OpenSSL
- * 6	malloc failed
- * 7	data is not a valid scrypt-encrypted block
- * 8	unrecognized scrypt format
- * 9	decrypting file would take too much memory
- * 10	decrypting file would take too long
- * 11	password is incorrect
- * 12	error writing output file
- * 13	error reading input file
- */
+struct scryptenc_params {
+	size_t maxmem;
+	double maxmemfrac;
+	double maxtime;
+
+	/* Explicit parameters. */
+	int logN;
+	uint32_t r;
+	uint32_t p;
+};
+
+/* Return codes from scrypt(enc|dec)_(buf|file|prep). */
+#define SCRYPT_OK	0	/* success */
+#define SCRYPT_ELIMIT	1	/* getrlimit or sysctrl(hw.usermem) failed */
+#define SCRYPT_ECLOCK	2	/* clock_getres or clock_gettime failed */
+#define SCRYPT_EKEY	3	/* error computing derived key */
+#define SCRYPT_ESALT	4	/* could not read salt */
+#define SCRYPT_EOPENSSL	5	/* error in OpenSSL */
+#define SCRYPT_ENOMEM	6	/* malloc failed */
+#define SCRYPT_EINVAL	7	/* data is not a valid scrypt-encrypted block */
+#define SCRYPT_EVERSION	8	/* unrecognized scrypt version number */
+#define SCRYPT_ETOOBIG	9	/* decrypting would take too much memory */
+#define SCRYPT_ETOOSLOW	10	/* decrypting would take too long */
+#define SCRYPT_EPASS	11	/* password is incorrect */
+#define SCRYPT_EWRFILE	12	/* error writing output file */
+#define SCRYPT_ERDFILE	13	/* error reading input file */
+#define SCRYPT_EPARAM	14	/* error in explicit parameters */
 
 /* Opaque structure. */
 struct scryptdec_file_cookie;
 
 /**
  * scryptenc_buf(inbuf, inbuflen, outbuf, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose):
- * Encrypt inbuflen bytes from inbuf, writing the resulting inbuflen + 128
- * bytes to outbuf.
+ *     params, verbose, force):
+ * Encrypt ${inbuflen} bytes from ${inbuf}, writing the resulting
+ * ${inbuflen} + 128 bytes to ${outbuf}.  The explicit parameters
+ * within ${params} must be zero or must all be non-zero.  Return
+ * the explicit parameters used via ${params}.
  */
 int scryptenc_buf(const uint8_t *, size_t, uint8_t *,
-    const uint8_t *, size_t, size_t, double, double, int);
+    const uint8_t *, size_t, struct scryptenc_params *, int, int);
 
 /**
  * scryptdec_buf(inbuf, inbuflen, outbuf, outlen, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose, force):
- * Decrypt inbuflen bytes from inbuf, writing the result into outbuf and the
- * decrypted data length to outlen.  The allocated length of outbuf must
- * be at least inbuflen.  If ${force} is 1, do not check whether
- * decryption will exceed the estimated available memory or time.
+ *     params, verbose, force):
+ * Decrypt ${inbuflen} bytes from ${inbuf}, writing the result into ${outbuf}
+ * and the decrypted data length to ${outlen}.  The allocated length of
+ * ${outbuf} must be at least ${inbuflen}.  If ${force} is 1, do not check
+ * whether decryption will exceed the estimated available memory or time.
+ * The explicit parameters within ${params} must be zero.  Return the explicit
+ * parameters used via ${params}.
  */
 int scryptdec_buf(const uint8_t *, size_t, uint8_t *, size_t *,
-    const uint8_t *, size_t, size_t, double, double, int, int);
+    const uint8_t *, size_t, struct scryptenc_params *, int, int);
 
 /**
- * scryptenc_file(infile, outfile, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose):
- * Read a stream from infile and encrypt it, writing the resulting stream to
- * outfile.
+ * scryptenc_file(infile, outfile, passwd, passwdlen, params, verbose, force):
+ * Read a stream from ${infile} and encrypt it, writing the resulting stream
+ * to ${outfile}.  The explicit parameters within ${params} must be zero
+ * or must all be non-zero.  Return the explicit parameters used via ${params}.
  */
 int scryptenc_file(FILE *, FILE *, const uint8_t *, size_t,
-    size_t, double, double, int);
+    struct scryptenc_params *, int, int);
 
 /**
  * scryptdec_file_printparams(infile):
@@ -119,24 +133,26 @@ int scryptenc_file(FILE *, FILE *, const uint8_t *, size_t,
 int scryptdec_file_printparams(FILE *);
 
 /**
- * scryptdec_file(infile, outfile, passwd, passwdlen,
- *     maxmem, maxmemfrac, maxtime, verbose, force):
- * Read a stream from infile and decrypt it, writing the resulting stream to
- * outfile.  If ${force} is 1, do not check whether decryption
- * will exceed the estimated available memory or time.
+ * scryptdec_file(infile, outfile, passwd, passwdlen, params, verbose, force):
+ * Read a stream from ${infile} and decrypt it, writing the resulting stream
+ * to ${outfile}.  If ${force} is 1, do not check whether decryption
+ * will exceed the estimated available memory or time.  The explicit
+ * parameters within ${params} must be zero.  Return the explicit parameters
+ * used via ${params}.
  */
 int scryptdec_file(FILE *, FILE *, const uint8_t *, size_t,
-    size_t, double, double, int, int);
+    struct scryptenc_params *, int, int);
 
 /**
- * scryptdec_file_prep(infile, passwd, passwdlen, maxmem, maxmemfrac,
- *     maxtime, force, cookie):
+ * scryptdec_file_prep(infile, passwd, passwdlen, params, force, cookie):
  * Prepare to decrypt ${infile}, including checking the passphrase.  Allocate
  * a cookie at ${cookie}.  After calling this function, ${infile} should not
- * be modified until the decryption is completed by scryptdec_file_copy.
+ * be modified until the decryption is completed by scryptdec_file_copy.  The
+ * explicit parameters within ${params} must be zero.  Return the explicit
+ * parameters to be used via ${params}.
  */
-int scryptdec_file_prep(FILE *, const uint8_t *, size_t, size_t, double,
-    double, int, int, struct scryptdec_file_cookie **);
+int scryptdec_file_prep(FILE *, const uint8_t *, size_t,
+    struct scryptenc_params *, int, int, struct scryptdec_file_cookie **);
 
 /**
  * scryptdec_file_copy(cookie, outfile):

@@ -25,6 +25,7 @@
  */
 #include "platform.h"
 
+#include <errno.h>
 #include <math.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -39,16 +40,88 @@
 #include "scryptenc.h"
 #include "warnp.h"
 
+/* How should we get the passphrase? */
+enum passphrase_entry {
+	PASSPHRASE_UNSET,
+	PASSPHRASE_TTY_STDIN,
+	PASSPHRASE_STDIN_ONCE,
+	PASSPHRASE_TTY_ONCE,
+	PASSPHRASE_ENV,
+	PASSPHRASE_FILE,
+};
+
 static void
 usage(void)
 {
 
 	fprintf(stderr,
-	    "usage: scrypt {enc | dec | info} [-f] [-M maxmem]"
-	    " [-m maxmemfrac]\n"
-	    "              [-t maxtime] [-v] [-P] infile [outfile]\n"
+	    "usage: scrypt {enc | dec | info} [-f] [--logN value] [-M maxmem]\n"
+	    "              [-m maxmemfrac] [-P] [-p value] [-r value]"
+	    " [-t maxtime] [-v]\n"
+	    "              [--passphrase method:arg] infile [outfile]\n"
 	    "       scrypt --version\n");
 	exit(1);
+}
+
+/* Parse a numeric optarg within a GETOPT context.  (Requires ch and optarg.) */
+#define GETOPT_PARSENUM_WITHIN_UNSIGNED(var, min, max) do {		\
+	if (PARSENUM((var), optarg, (min), (max))) {			\
+		if (errno == ERANGE) {					\
+			warn0("%s must be between %ju and %ju"		\
+			    " (inclusive)", ch, (uintmax_t)(min),	\
+			    (uintmax_t)(max));				\
+		} else							\
+			warnp("Invalid option: %s %s", ch, optarg);	\
+		exit(1);						\
+	}								\
+} while(0)
+
+static int
+parse_passphrase_arg(const char * arg,
+    enum passphrase_entry * passphrase_entry_p, const char ** passphrase_arg_p)
+{
+	const char * p;
+
+	/* Find the separator in "method:arg", or fail if there isn't one. */
+	if ((p = strchr(arg, ':')) == NULL)
+		goto err1;
+
+	/* Extract the "arg" part. */
+	*passphrase_arg_p = &p[1];
+
+	/* Parse the "method". */
+	if (strncmp(arg, "dev:", 4) == 0) {
+		if (strcmp(*passphrase_arg_p, "tty-stdin") == 0) {
+			*passphrase_entry_p = PASSPHRASE_TTY_STDIN;
+			goto success;
+		}
+		else if (strcmp(*passphrase_arg_p, "stdin-once") == 0) {
+			*passphrase_entry_p = PASSPHRASE_STDIN_ONCE;
+			goto success;
+		}
+		else if (strcmp(*passphrase_arg_p, "tty-once") == 0) {
+			*passphrase_entry_p = PASSPHRASE_TTY_ONCE;
+			goto success;
+		}
+	}
+	if (strncmp(optarg, "env:", 4) == 0) {
+		*passphrase_entry_p = PASSPHRASE_ENV;
+		goto success;
+	}
+	if (strncmp(optarg, "file:", 5) == 0) {
+		*passphrase_entry_p = PASSPHRASE_FILE;
+		goto success;
+	}
+
+err1:
+	warn0("Invalid option: --passphrase %s", arg);
+
+	/* Failure! */
+	return (-1);
+
+success:
+	/* Success! */
+	return (0);
 }
 
 int
@@ -56,14 +129,11 @@ main(int argc, char *argv[])
 {
 	FILE * infile;
 	FILE * outfile = stdout;
-	int devtty = 1;
 	int dec = 0;
 	int info = 0;
-	size_t maxmem = 0;
 	int force_resources = 0;
 	uint64_t maxmem64;
-	double maxmemfrac = 0.5;
-	double maxtime = 300.0;
+	struct scryptenc_params params = {0, 0.5, 300.0, 0, 0, 0};
 	const char * ch;
 	const char * infilename;
 	const char * outfilename;
@@ -71,6 +141,9 @@ main(int argc, char *argv[])
 	int rc;
 	int verbose = 0;
 	struct scryptdec_file_cookie * C = NULL;
+	enum passphrase_entry passphrase_entry = PASSPHRASE_UNSET;
+	const char * passphrase_arg;
+	const char * passwd_env;
 
 	WARNP_INIT;
 
@@ -78,9 +151,9 @@ main(int argc, char *argv[])
 	if (argc < 2)
 		usage();
 	if (strcmp(argv[1], "enc") == 0) {
-		maxmem = 0;
-		maxmemfrac = 0.125;
-		maxtime = 5.0;
+		params.maxmem = 0;
+		params.maxmemfrac = 0.125;
+		params.maxtime = 5.0;
 	} else if (strcmp(argv[1], "dec") == 0) {
 		dec = 1;
 	} else if (strcmp(argv[1], "info") == 0) {
@@ -89,7 +162,7 @@ main(int argc, char *argv[])
 		fprintf(stdout, "scrypt %s\n", PACKAGE_VERSION);
 		exit(0);
 	} else {
-		warn0("First argument must be 'enc', 'dec', or 'info'.\n");
+		warn0("First argument must be 'enc', 'dec', or 'info'.");
 		usage();
 	}
 	argc--;
@@ -101,6 +174,9 @@ main(int argc, char *argv[])
 		GETOPT_OPT("-f"):
 			force_resources = 1;
 			break;
+		GETOPT_OPTARG("--logN"):
+			GETOPT_PARSENUM_WITHIN_UNSIGNED(&params.logN, 10, 40);
+			break;
 		GETOPT_OPTARG("-M"):
 			if (humansize_parse(optarg, &maxmem64)) {
 				warn0("Could not parse the parameter to -M.");
@@ -110,16 +186,34 @@ main(int argc, char *argv[])
 				warn0("The parameter to -M is too large.");
 				exit(1);
 			}
-			maxmem = (size_t)maxmem64;
+			params.maxmem = (size_t)maxmem64;
 			break;
 		GETOPT_OPTARG("-m"):
-			if (PARSENUM(&maxmemfrac, optarg, 0, 1)) {
+			if (PARSENUM(&params.maxmemfrac, optarg, 0, 1)) {
 				warnp("Invalid option: -m %s", optarg);
 				exit(1);
 			}
 			break;
+		GETOPT_OPTARG("-p"):
+			GETOPT_PARSENUM_WITHIN_UNSIGNED(&params.p, 1, 32);
+			break;
+		GETOPT_OPTARG("--passphrase"):
+			if (passphrase_entry != PASSPHRASE_UNSET) {
+				warn0("You can only enter one --passphrase or"
+				    " -P argument");
+				exit(1);
+			}
+
+			/* Parse "method:arg" optarg. */
+			if (parse_passphrase_arg(optarg, &passphrase_entry,
+			    &passphrase_arg))
+				exit(1);
+			break;
+		GETOPT_OPTARG("-r"):
+			GETOPT_PARSENUM_WITHIN_UNSIGNED(&params.r, 1, 32);
+			break;
 		GETOPT_OPTARG("-t"):
-			if (PARSENUM(&maxtime, optarg, 0, INFINITY)) {
+			if (PARSENUM(&params.maxtime, optarg, 0, INFINITY)) {
 				warnp("Invalid option: -t %s", optarg);
 				exit(1);
 			}
@@ -128,13 +222,18 @@ main(int argc, char *argv[])
 			verbose = 1;
 			break;
 		GETOPT_OPT("-P"):
-			devtty = 0;
+			if (passphrase_entry != PASSPHRASE_UNSET) {
+				warn0("You can only enter one --passphrase or"
+				    " -P argument");
+				exit(1);
+			}
+			passphrase_entry = PASSPHRASE_STDIN_ONCE;
 			break;
 		GETOPT_MISSING_ARG:
-			warn0("Missing argument to %s\n", ch);
+			warn0("Missing argument to %s", ch);
 			usage();
 		GETOPT_DEFAULT:
-			warn0("illegal option -- %s\n", ch);
+			warn0("illegal option -- %s", ch);
 			usage();
 		}
 	}
@@ -144,6 +243,20 @@ main(int argc, char *argv[])
 	/* We must have one or two parameters left. */
 	if ((argc < 1) || (argc > 2))
 		usage();
+
+	/* The explicit parameters must be zero, or all non-zero. */
+	if ((params.logN != 0) && ((params.r == 0) || (params.p == 0))) {
+		warn0("If --logN is set, -r and -p must also be set");
+		goto err0;
+	}
+	if ((params.r != 0) && ((params.logN == 0) || (params.p == 0))) {
+		warn0("If -r is set, --logN and -p must also be set");
+		goto err0;
+	}
+	if ((params.p != 0) && ((params.logN == 0) || (params.r == 0))) {
+		warn0("If -p is set, --logN and -r must also be set");
+		goto err0;
+	}
 
 	/* Set the input filename. */
 	if (strcmp(argv[0], "-"))
@@ -157,6 +270,10 @@ main(int argc, char *argv[])
 	else
 		outfilename = NULL;
 
+	/* Set the default passphrase entry method. */
+	if (passphrase_entry == PASSPHRASE_UNSET)
+		passphrase_entry = PASSPHRASE_TTY_STDIN;
+
 	/* If the input isn't stdin, open the file. */
 	if (infilename != NULL) {
 		if ((infile = fopen(infilename, "rb")) == NULL) {
@@ -167,7 +284,7 @@ main(int argc, char *argv[])
 		infile = stdin;
 
 		/* Error if given incompatible options. */
-		if (devtty == 0) {
+		if (passphrase_entry == PASSPHRASE_STDIN_ONCE) {
 			warn0("Cannot read both passphrase and input file"
 			    " from standard input");
 			goto err0;
@@ -187,10 +304,45 @@ main(int argc, char *argv[])
 		goto done;
 	}
 
-	/* Prompt for a password. */
-	if (readpass(&passwd, "Please enter passphrase",
-	    (dec || !devtty) ? NULL : "Please confirm passphrase", devtty))
+	/* Get the password. */
+	switch (passphrase_entry) {
+	case PASSPHRASE_TTY_STDIN:
+		/* Read passphrase, prompting only once if decrypting. */
+		if (readpass(&passwd, "Please enter passphrase",
+		    (dec) ? NULL : "Please confirm passphrase", 1))
+			goto err1;
+		break;
+	case PASSPHRASE_STDIN_ONCE:
+		/* Read passphrase, prompting only once, from stdin only. */
+		if (readpass(&passwd, "Please enter passphrase", NULL, 0))
+			goto err1;
+		break;
+	case PASSPHRASE_TTY_ONCE:
+		/* Read passphrase, prompting only once, from tty only. */
+		if (readpass(&passwd, "Please enter passphrase", NULL, 2))
+			goto err1;
+		break;
+	case PASSPHRASE_ENV:
+		/* We're not allowed to modify the output of getenv(). */
+		if ((passwd_env = getenv(passphrase_arg)) == NULL) {
+			warn0("Failed to read from ${%s}", passphrase_arg);
+			goto err1;
+		}
+
+		/* This allows us to use the same insecure_zero() logic. */
+		if ((passwd = strdup(passwd_env)) == NULL) {
+			warnp("Out of memory");
+			goto err1;
+		}
+		break;
+	case PASSPHRASE_FILE:
+		if (readpass_file(&passwd, passphrase_arg))
+			goto err1;
+		break;
+	case PASSPHRASE_UNSET:
+		warn0("Programming error: passphrase_entry is not set");
 		goto err1;
+	}
 
 	/*-
 	 * If we're decrypting, open the input file and process its header;
@@ -203,8 +355,8 @@ main(int argc, char *argv[])
 	 */
 	if (dec) {
 		if ((rc = scryptdec_file_prep(infile, (uint8_t *)passwd,
-		    strlen(passwd), maxmem, maxmemfrac, maxtime, verbose,
-		    force_resources, &C)) != 0) {
+		    strlen(passwd), &params, verbose, force_resources,
+		    &C)) != 0) {
 			goto cleanup;
 		}
 	}
@@ -222,7 +374,7 @@ main(int argc, char *argv[])
 		rc = scryptdec_file_copy(C, outfile);
 	else
 		rc = scryptenc_file(infile, outfile, (uint8_t *)passwd,
-		    strlen(passwd), maxmem, maxmemfrac, maxtime, verbose);
+		    strlen(passwd), &params, verbose, force_resources);
 
 cleanup:
 	/* Free the decryption cookie, if any. */
@@ -240,50 +392,53 @@ cleanup:
 
 done:
 	/* If we failed, print the right error message and exit. */
-	if (rc != 0) {
+	if (rc != SCRYPT_OK) {
 		switch (rc) {
-		case 1:
+		case SCRYPT_ELIMIT:
 			warnp("Error determining amount of available memory");
 			break;
-		case 2:
+		case SCRYPT_ECLOCK:
 			warnp("Error reading clocks");
 			break;
-		case 3:
+		case SCRYPT_EKEY:
 			warnp("Error computing derived key");
 			break;
-		case 4:
+		case SCRYPT_ESALT:
 			warnp("Error reading salt");
 			break;
-		case 5:
+		case SCRYPT_EOPENSSL:
 			warnp("OpenSSL error");
 			break;
-		case 6:
+		case SCRYPT_ENOMEM:
 			warnp("Error allocating memory");
 			break;
-		case 7:
+		case SCRYPT_EINVAL:
 			warn0("Input is not valid scrypt-encrypted block");
 			break;
-		case 8:
+		case SCRYPT_EVERSION:
 			warn0("Unrecognized scrypt format version");
 			break;
-		case 9:
+		case SCRYPT_ETOOBIG:
 			warn0("Decrypting file would require too much memory");
 			break;
-		case 10:
+		case SCRYPT_ETOOSLOW:
 			warn0("Decrypting file would take too much CPU time");
 			break;
-		case 11:
+		case SCRYPT_EPASS:
 			warn0("Passphrase is incorrect");
 			break;
-		case 12:
+		case SCRYPT_EWRFILE:
 			warnp("Error writing file: %s",
 			    (outfilename != NULL) ? outfilename
 			    : "standard output");
 			break;
-		case 13:
+		case SCRYPT_ERDFILE:
 			warnp("Error reading file: %s",
 			    (infilename != NULL) ? infilename
 			    : "standard input");
+			break;
+		case SCRYPT_EPARAM:
+			warn0("Error in explicit parameters");
 			break;
 		}
 		goto err0;
