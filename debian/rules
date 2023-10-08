@@ -3,7 +3,9 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
-export SCRYPT_VERSION = $(shell dpkg-parsechangelog --show-field version | sed -e 's/-[^-][^-]*$$//')
+include /usr/share/dpkg/pkg-info.mk
+
+export SCRYPT_VERSION = $(DEB_VERSION_UPSTREAM)
 
 %:
 	dh $@
