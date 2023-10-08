@@ -1,5 +1,5 @@
-#ifndef _CPUSUPPORT_H_
-#define _CPUSUPPORT_H_
+#ifndef CPUSUPPORT_H_
+#define CPUSUPPORT_H_
 
 /*
  * To enable support for non-portable CPU features at compile time, one or
@@ -77,7 +77,7 @@
 #define CPUSUPPORT_FEATURE(arch, feature, enabler)				\
 	CPUSUPPORT_FEATURE_(arch ## _ ## feature, enabler, CPUSUPPORT_ ## enabler)
 
-/*
+/**
  * CPUSUPPORT_FEATURE_DECL(arch, feature):
  * Macro which defines variables and provides a function declaration for
  * detecting the presence of "feature" on the "arch" architecture.  The
@@ -94,19 +94,50 @@
 	int								\
 	cpusupport_ ## arch ## _ ## feature ## _detect_1(void)
 
-/*
+/**
+ * CPUSUPPORT_VALIDATE(hwvar, success_value, cpusupport_checks, check):
+ * Check if we can enable ${success_value}, given the ${cpusupport_checks} and
+ * ${check}; if so, write to ${hwvar}.  If the ${cpusupport_checks} pass but
+ * the ${check} is non-zero, produce a warning which includes a stringified
+ * ${success_value}, then fallthrough.
+ */
+#define CPUSUPPORT_VALIDATE(hwvar, success_value, cpusupport_checks,	\
+    check) do {								\
+	if ((cpusupport_checks)) {					\
+		if ((check) == 0) {					\
+			(hwvar) = (success_value);			\
+			return;						\
+		} else {						\
+			warn0("Disabling " #success_value		\
+			    " due to failed self-test");		\
+		}							\
+	}								\
+} while (0)
+
+/**
  * List of features.  If a feature here is not enabled by the appropriate
  * CPUSUPPORT_ARCH_FEATURE macro being defined, it has no effect; but if the
  * relevant macro may be defined (e.g., by Build/cpusupport.sh successfully
  * compiling Build/cpusupport-ARCH-FEATURE.c) then the C file containing the
  * corresponding run-time detection code (cpusupport_arch_feature.c) must be
  * compiled and linked in.
+ *
+ * There are a few features for which we do not have run-time checks:
+ * - X86_CPUID: compile-time is enough; if __get_cpuid() fails, then all the
+ *              x86 detection features will fail, but there's nothing we can
+ *              do about that.
+ * - X86_CPUID_COUNT: ditto.
+ * - X86_SSE42_64: the cpuid check tells us if the CPU supports SSE4.2, but
+ *                 that says nothing about whether it's in 64-bit mode.
  */
 CPUSUPPORT_FEATURE(x86, aesni, X86_AESNI);
-CPUSUPPORT_FEATURE(x86, crc32_64, X86_CRC32_64);
 CPUSUPPORT_FEATURE(x86, rdrand, X86_RDRAND);
 CPUSUPPORT_FEATURE(x86, shani, X86_SHANI);
 CPUSUPPORT_FEATURE(x86, sse2, X86_SSE2);
+CPUSUPPORT_FEATURE(x86, sse42, X86_SSE42);
 CPUSUPPORT_FEATURE(x86, ssse3, X86_SSSE3);
+CPUSUPPORT_FEATURE(arm, aes, ARM_AES);
+CPUSUPPORT_FEATURE(arm, crc32_64, ARM_CRC32_64);
+CPUSUPPORT_FEATURE(arm, sha256, ARM_SHA256);
 
-#endif /* !_CPUSUPPORT_H_ */
+#endif /* !CPUSUPPORT_H_ */

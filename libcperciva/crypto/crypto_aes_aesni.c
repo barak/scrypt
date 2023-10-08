@@ -1,19 +1,23 @@
 #include "cpusupport.h"
 #ifdef CPUSUPPORT_X86_AESNI
+/**
+ * CPUSUPPORT CFLAGS: X86_AESNI
+ */
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <wmmintrin.h>
 
+#include "align_ptr.h"
 #include "insecure_memzero.h"
 #include "warnp.h"
 
 #include "crypto_aes_aesni.h"
+#include "crypto_aes_aesni_m128i.h"
 
 /* Expanded-key structure. */
 struct crypto_aes_key_aesni {
-	uint8_t rkeys_buf[15 * sizeof(__m128i) + (sizeof(__m128i) - 1)];
-	__m128i * rkeys;
+	ALIGN_PTR_DECL(__m128i, rkeys, 15, sizeof(__m128i));
 	size_t nr;
 };
 
@@ -29,13 +33,15 @@ struct crypto_aes_key_aesni {
 } while (0)
 
 /**
- * crypto_aes_key_expand_128_aesni(key, rkeys):
- * Expand the 128-bit AES key ${key} into the 11 round keys ${rkeys}.  This
- * implementation uses x86 AESNI instructions, and should only be used if
- * CPUSUPPORT_X86_AESNI is defined and cpusupport_x86_aesni() returns nonzero.
+ * crypto_aes_key_expand_128_aesni(key_unexpanded, rkeys):
+ * Expand the 128-bit AES unexpanded key ${key_unexpanded} into the 11 round
+ * keys ${rkeys}.  This implementation uses x86 AESNI instructions, and should
+ * only be used if CPUSUPPORT_X86_AESNI is defined and cpusupport_x86_aesni()
+ * returns nonzero.
  */
 static void
-crypto_aes_key_expand_128_aesni(const uint8_t key[16], __m128i rkeys[11])
+crypto_aes_key_expand_128_aesni(const uint8_t key_unexpanded[16],
+    __m128i rkeys[11])
 {
 
 	/* The first round key is just the key. */
@@ -49,7 +55,7 @@ crypto_aes_key_expand_128_aesni(const uint8_t key[16], __m128i rkeys[11])
 	 * that alignment-requirement-increasing compiler warnings get
 	 * disabled.
 	 */
-	rkeys[0] = _mm_loadu_si128((const __m128i *)&key[0]);
+	rkeys[0] = _mm_loadu_si128((const __m128i *)&key_unexpanded[0]);
 
 	/*
 	 * Each of the remaining round keys are computed from the preceding
@@ -83,13 +89,15 @@ crypto_aes_key_expand_128_aesni(const uint8_t key[16], __m128i rkeys[11])
 } while (0)
 
 /**
- * crypto_aes_key_expand_256_aesni(key, rkeys):
- * Expand the 256-bit AES key ${key} into the 15 round keys ${rkeys}.  This
- * implementation uses x86 AESNI instructions, and should only be used if
- * CPUSUPPORT_X86_AESNI is defined and cpusupport_x86_aesni() returns nonzero.
+ * crypto_aes_key_expand_256_aesni(key_unexpanded, rkeys):
+ * Expand the 256-bit unexpanded AES key ${key_unexpanded} into the 15 round
+ * keys ${rkeys}.  This implementation uses x86 AESNI instructions, and should
+ * only be used if CPUSUPPORT_X86_AESNI is defined and cpusupport_x86_aesni()
+ * returns nonzero.
  */
 static void
-crypto_aes_key_expand_256_aesni(const uint8_t key[32], __m128i rkeys[15])
+crypto_aes_key_expand_256_aesni(const uint8_t key_unexpanded[32],
+    __m128i rkeys[15])
 {
 
 	/* The first two round keys are just the key. */
@@ -103,8 +111,8 @@ crypto_aes_key_expand_256_aesni(const uint8_t key[32], __m128i rkeys[15])
 	 * that alignment-requirement-increasing compiler warnings get
 	 * disabled.
 	 */
-	rkeys[0] = _mm_loadu_si128((const __m128i *)&key[0]);
-	rkeys[1] = _mm_loadu_si128((const __m128i *)&key[16]);
+	rkeys[0] = _mm_loadu_si128((const __m128i *)&key_unexpanded[0]);
+	rkeys[1] = _mm_loadu_si128((const __m128i *)&key_unexpanded[16]);
 
 	/*
 	 * Each of the remaining round keys are computed from the preceding
@@ -133,34 +141,32 @@ crypto_aes_key_expand_256_aesni(const uint8_t key[32], __m128i rkeys[15])
 }
 
 /**
- * crypto_aes_key_expand_aesni(key, len):
- * Expand the ${len}-byte AES key ${key} into a structure which can be passed
- * to crypto_aes_encrypt_block_aesni.  The length must be 16 or 32.  This
- * implementation uses x86 AESNI instructions, and should only be used if
- * CPUSUPPORT_X86_AESNI is defined and cpusupport_x86_aesni() returns nonzero.
+ * crypto_aes_key_expand_aesni(key_unexpanded, len):
+ * Expand the ${len}-byte unexpanded AES key ${key_unexpanded} into a
+ * structure which can be passed to crypto_aes_encrypt_block_aesni().  The
+ * length must be 16 or 32.  This implementation uses x86 AESNI instructions,
+ * and should only be used if CPUSUPPORT_X86_AESNI is defined and
+ * cpusupport_x86_aesni() returns nonzero.
  */
 void *
-crypto_aes_key_expand_aesni(const uint8_t * key, size_t len)
+crypto_aes_key_expand_aesni(const uint8_t * key_unexpanded, size_t len)
 {
 	struct crypto_aes_key_aesni * kexp;
-	size_t rkey_offset;
 
 	/* Allocate structure. */
 	if ((kexp = malloc(sizeof(struct crypto_aes_key_aesni))) == NULL)
 		goto err0;
 
 	/* Figure out where to put the round keys. */
-	rkey_offset = (uintptr_t)(&kexp->rkeys_buf[0]) % sizeof(__m128i);
-	rkey_offset = (sizeof(__m128i) - rkey_offset) % sizeof(__m128i);
-	kexp->rkeys = (void *)&kexp->rkeys_buf[rkey_offset];
+	ALIGN_PTR_INIT(kexp->rkeys, sizeof(__m128i));
 
 	/* Compute round keys. */
 	if (len == 16) {
 		kexp->nr = 10;
-		crypto_aes_key_expand_128_aesni(key, kexp->rkeys);
+		crypto_aes_key_expand_128_aesni(key_unexpanded, kexp->rkeys);
 	} else if (len == 32) {
 		kexp->nr = 14;
-		crypto_aes_key_expand_256_aesni(key, kexp->rkeys);
+		crypto_aes_key_expand_256_aesni(key_unexpanded, kexp->rkeys);
 	} else {
 		warn0("Unsupported AES key length: %zu bytes", len);
 		goto err1;
@@ -177,22 +183,20 @@ err0:
 }
 
 /**
- * crypto_aes_encrypt_block_aesni(in, out, key):
- * Using the expanded AES key ${key}, encrypt the block ${in} and write the
- * resulting ciphertext to ${out}.  This implementation uses x86 AESNI
- * instructions, and should only be used if CPUSUPPORT_X86_AESNI is defined
- * and cpusupport_x86_aesni() returns nonzero.
+ * crypto_aes_encrypt_block_aesni_m128i(in, key):
+ * Using the expanded AES key ${key}, encrypt the block ${in} and return the
+ * resulting ciphertext.  This implementation uses x86 AESNI instructions,
+ * and should only be used if CPUSUPPORT_X86_AESNI is defined and
+ * cpusupport_x86_aesni() returns nonzero.
  */
-void
-crypto_aes_encrypt_block_aesni(const uint8_t * in, uint8_t * out,
-    const void * key)
+__m128i
+crypto_aes_encrypt_block_aesni_m128i(__m128i in, const void * key)
 {
 	const struct crypto_aes_key_aesni * _key = key;
 	const __m128i * aes_key = _key->rkeys;
-	__m128i aes_state;
+	__m128i aes_state = in;
 	size_t nr = _key->nr;
 
-	aes_state = _mm_loadu_si128((const __m128i *)in);
 	aes_state = _mm_xor_si128(aes_state, aes_key[0]);
 	aes_state = _mm_aesenc_si128(aes_state, aes_key[1]);
 	aes_state = _mm_aesenc_si128(aes_state, aes_key[2]);
@@ -206,14 +210,29 @@ crypto_aes_encrypt_block_aesni(const uint8_t * in, uint8_t * out,
 	if (nr > 10) {
 		aes_state = _mm_aesenc_si128(aes_state, aes_key[10]);
 		aes_state = _mm_aesenc_si128(aes_state, aes_key[11]);
-
-		if (nr > 12) {
-			aes_state = _mm_aesenc_si128(aes_state, aes_key[12]);
-			aes_state = _mm_aesenc_si128(aes_state, aes_key[13]);
-		}
+		aes_state = _mm_aesenc_si128(aes_state, aes_key[12]);
+		aes_state = _mm_aesenc_si128(aes_state, aes_key[13]);
 	}
 
 	aes_state = _mm_aesenclast_si128(aes_state, aes_key[nr]);
+	return (aes_state);
+}
+
+/**
+ * crypto_aes_encrypt_block_aesni(in, out, key):
+ * Using the expanded AES key ${key}, encrypt the block ${in} and write the
+ * resulting ciphertext to ${out}.  ${in} and ${out} can overlap.  This
+ * implementation uses x86 AESNI instructions, and should only be used if
+ * CPUSUPPORT_X86_AESNI is defined and cpusupport_x86_aesni() returns nonzero.
+ */
+void
+crypto_aes_encrypt_block_aesni(const uint8_t in[16], uint8_t out[16],
+    const void * key)
+{
+	__m128i aes_state;
+
+	aes_state = _mm_loadu_si128((const __m128i *)in);
+	aes_state = crypto_aes_encrypt_block_aesni_m128i(aes_state, key);
 	_mm_storeu_si128((__m128i *)out, aes_state);
 }
 

@@ -1,5 +1,5 @@
-#ifndef _WARNP_H_
-#define _WARNP_H_
+#ifndef WARNP_H_
+#define WARNP_H_
 
 #include <errno.h>
 #include <stddef.h>
@@ -34,7 +34,7 @@ void warnp_syslog(int);
 /**
  * warnp_syslog_priority(priority):
  * Tag future syslog messages with priority ${priority}.  Do not enable
- * syslog messages; for that, use warnp_syslog.
+ * syslog messages; for that, use warnp_syslog().
  */
 void warnp_syslog_priority(int);
 
@@ -67,7 +67,7 @@ void warnx(const char *, ...);
 } while (0)
 
 /*
- * Call warnx(3) and set errno == 0.  Unlike warnp, this should be used
+ * Call warnx(3) and set errno == 0.  Unlike warnp(), this should be used
  * in cases where we're reporting a problem which we discover ourselves
  * rather than one which is reported to us from a library or the kernel.
  */
@@ -77,4 +77,4 @@ void warnx(const char *, ...);
 	errno = 0;					\
 } while (0)
 
-#endif /* !_WARNP_H_ */
+#endif /* !WARNP_H_ */

@@ -26,8 +26,8 @@
  * This file was originally written by Colin Percival as part of the Tarsnap
  * online backup system.
  */
-#ifndef _MEMLIMIT_H_
-#define _MEMLIMIT_H_
+#ifndef MEMLIMIT_H_
+#define MEMLIMIT_H_
 
 #include <stddef.h>
 
@@ -36,8 +36,9 @@
  * Examine the system and return the amount of RAM which should be
  * used in ${memlimit}.  This value should be the specified
  * ${maxmemfrac} fraction of available RAM, but no more than
- * ${maxmem} and no less than 1 MiB.
+ * ${maxmem} and no less than 1 MiB.  ${maxmemfrac} must be larger than 0
+ * and <= 1.0.
  */
 int memtouse(size_t, double, size_t *);
 
-#endif /* !_MEMLIMIT_H_ */
+#endif /* !MEMLIMIT_H_ */

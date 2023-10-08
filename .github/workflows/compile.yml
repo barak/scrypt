@@ -1,0 +1,114 @@
+name: Compile & test
+
+# Run whenever we push to any branch without a "/", other than [coverity-scan].
+on:
+  push:
+    branches:
+    - '*'
+    - '!coverity-scan'
+
+env:
+  # Shared variables amongst all projects / platforms / compilers.
+  CFLAGS_ALL: -std=c99 -O2
+  CFLAGS_CLANG_LIBCPERCIVA: -Wall -Wextra -Werror -Weverything
+                            -Wno-#warnings -Wno-pedantic -Wno-padded
+                            -Wno-format-nonliteral
+                            -Wno-disabled-macro-expansion
+                            -Wno-missing-noreturn
+                            -Wno-unused-macros
+                            -Wno-documentation-unknown-command
+                            -Wno-implicit-fallthrough
+  CFLAGS_GCC_LIBCPERCIVA: -Wall -Wextra -Werror -Wpedantic
+                          -pedantic-errors -Wno-clobbered
+  # Variables for specific projects / platforms / compilers.
+  CFLAGS_CLANG_PROJECT: -Wno-reserved-id-macro
+  CFLAGS_GCC_PROJECT: -Wno-cpp
+  CFLAGS_OSX: -Wno-poison-system-directories
+              -I/usr/local/opt/openssl@1.1/include
+  LDFLAGS_OSX: -L/usr/local/opt/openssl@1.1/lib
+
+jobs:
+  Ubuntu:
+    name: Ubuntu
+    runs-on: ubuntu-20.04
+    steps:
+    - name: Update apt-get
+      run: sudo apt-get update
+    - name: Install software
+      run: sudo apt-get install --no-install-recommends
+           valgrind autoconf-archive
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Run autoreconf
+      run:
+        autoreconf -i
+    - name: Configure with clang
+      env:
+        CC: clang-10
+        CFLAGS: ${{ env.CFLAGS_ALL }}
+      run: ./configure
+    - name: Compile with clang
+      env:
+        CC: clang-10
+        CFLAGS: ${{ env.CFLAGS_ALL }}
+                ${{ env.CFLAGS_CLANG_LIBCPERCIVA }}
+                ${{ env.CFLAGS_CLANG_PROJECT }}
+      # make(1) doesn't automatically override the CFLAGS macro set inside
+      # Makefile with the environment variable.
+      run: make CFLAGS="${{ env.CFLAGS }}"
+    - name: Test clang binaries
+      env:
+        USE_VALGRIND: 1
+      run: make test VERBOSE=1
+    - name: Clean
+      run: make clean
+    - name: Configure with gcc
+      env:
+        CC: gcc-10
+        CFLAGS: ${{ env.CFLAGS_ALL }}
+      run: ./configure
+    - name: Compile with gcc
+      env:
+        CC: gcc-10
+        CFLAGS: ${{ env.CFLAGS_ALL }}
+                ${{ env.CFLAGS_GCC_LIBCPERCIVA }}
+                ${{ env.CFLAGS_GCC_PROJECT }}
+      # make(1) doesn't automatically override the CFLAGS macro set inside
+      # Makefile with the environment variable.
+      run: make CFLAGS="${{ env.CFLAGS }}"
+    - name: Test gcc binaries
+      env:
+        USE_VALGRIND: 1
+      run: make test VERBOSE=1
+    - name: Check for untracked files
+      run: test -z "$(git status --porcelain=v1)"
+  macOS:
+    name: macOS
+    runs-on: macOS-11
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    - name: Install software
+      run: brew install automake
+    - name: Run autoreconf
+      run: autoreconf -i
+    - name: Configure with clang
+      env:
+        CC: clang
+        CFLAGS: ${{ env.CFLAGS_ALL }}
+                ${{ env.CFLAGS_OSX }}
+        LDFLAGS: ${{ env.LDFLAGS_OSX }}
+      run: ./configure
+    - name: Compile with clang
+      env:
+        CC: clang
+        CFLAGS: ${{ env.CFLAGS_ALL }}
+                ${{ env.CFLAGS_CLANG_LIBCPERCIVA }}
+                ${{ env.CFLAGS_CLANG_PROJECT }}
+                ${{ env.CFLAGS_OSX }}
+        LDFLAGS: ${{ env.LDFLAGS_OSX }}
+      # make(1) doesn't automatically override the CFLAGS macro set inside
+      # Makefile with the environment variable.
+      run: make CFLAGS="${{ env.CFLAGS }}"
+    - name: Test clang binaries
+      run: make test VERBOSE=1

@@ -27,39 +27,32 @@
  * online backup system.
  */
 #include <stdint.h>
+#include <string.h>
 
 #include "sysendian.h"
 
 #include "crypto_scrypt_smix.h"
 
-static void blkcpy(void *, const void *, size_t);
-static void blkxor(void *, const void *, size_t);
+static void blkcpy(uint32_t *, const uint32_t *, size_t);
+static void blkxor(uint32_t *, const uint32_t *, size_t);
 static void salsa20_8(uint32_t[16]);
 static void blockmix_salsa8(const uint32_t *, uint32_t *, uint32_t *, size_t);
-static uint64_t integerify(const void *, size_t);
+static uint64_t integerify(const uint32_t *, size_t);
 
 static void
-blkcpy(void * dest, const void * src, size_t len)
+blkcpy(uint32_t * dest, const uint32_t * src, size_t len)
 {
-	size_t * D = dest;
-	const size_t * S = src;
-	size_t L = len / sizeof(size_t);
-	size_t i;
 
-	for (i = 0; i < L; i++)
-		D[i] = S[i];
+	memcpy(dest, src, len);
 }
 
 static void
-blkxor(void * dest, const void * src, size_t len)
+blkxor(uint32_t * dest, const uint32_t * src, size_t len)
 {
-	size_t * D = dest;
-	const size_t * S = src;
-	size_t L = len / sizeof(size_t);
 	size_t i;
 
-	for (i = 0; i < L; i++)
-		D[i] ^= S[i];
+	for (i = 0; i < len / 4; i++)
+		dest[i] ^= src[i];
 }
 
 /**
@@ -145,9 +138,9 @@ blockmix_salsa8(const uint32_t * Bin, uint32_t * Bout, uint32_t * X, size_t r)
  * Return the result of parsing B_{2r-1} as a little-endian integer.
  */
 static uint64_t
-integerify(const void * B, size_t r)
+integerify(const uint32_t * B, size_t r)
 {
-	const uint32_t * X = (const void *)((uintptr_t)(B) + (2 * r - 1) * 64);
+	const uint32_t * X = B + (2 * r - 1) * 16;
 
 	return (((uint64_t)(X[1]) << 32) + X[0]);
 }
@@ -161,12 +154,12 @@ integerify(const void * B, size_t r)
  * multiple of 64 bytes.
  */
 void
-crypto_scrypt_smix(uint8_t * B, size_t r, uint64_t N, void * _V, void * XY)
+crypto_scrypt_smix(uint8_t * B, size_t r, uint64_t N, void * _v, void * XY)
 {
 	uint32_t * X = XY;
 	uint32_t * Y = (void *)((uint8_t *)(XY) + 128 * r);
 	uint32_t * Z = (void *)((uint8_t *)(XY) + 256 * r);
-	uint32_t * V = _V;
+	uint32_t * V = _v;
 	uint64_t i;
 	uint64_t j;
 	size_t k;

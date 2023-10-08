@@ -26,8 +26,8 @@
  * This file was originally written by Colin Percival as part of the Tarsnap
  * online backup system.
  */
-#ifndef _SCRYPTENC_H_
-#define _SCRYPTENC_H_
+#ifndef SCRYPTENC_H_
+#define SCRYPTENC_H_
 
 #include <stdint.h>
 #include <stdio.h>
@@ -36,8 +36,8 @@
  * NOTE: This file provides prototypes for routines which encrypt/decrypt data
  * using a key derived from a password by using the scrypt key derivation
  * function.  If you are just trying to "hash" a password for user logins,
- * this is not the code you are looking for.  You want to use the crypto_scrypt
- * function directly.
+ * this is not the code you are looking for.  You want to use the
+ * crypto_scrypt() function directly.
  */
 
 /**
@@ -50,8 +50,7 @@
  * maxmemfrac - maximum fraction of available storage to use for the V array,
  *     where "available storage" is defined as the minimum out of the
  *     RLIMIT_AS, RLIMIT_DATA. and RLIMIT_RSS resource limits (if any are
- *     set).  If this value is set to 0 or more than 0.5 it will be treated
- *     as 0.5; and this value will never cause a limit of less than 1 MiB to
+ *     set).  This value will never cause a limit of less than 1 MiB to
  *     be enforced.
  * maxtime - maximum amount of CPU time to spend computing the derived keys,
  *     in seconds.  This limit is only approximately enforced; the CPU
@@ -89,6 +88,7 @@ struct scryptenc_params {
 #define SCRYPT_EWRFILE	12	/* error writing output file */
 #define SCRYPT_ERDFILE	13	/* error reading input file */
 #define SCRYPT_EPARAM	14	/* error in explicit parameters */
+#define SCRYPT_EBIGSLOW 15	/* both SCRYPT_ETOOBIG and SCRYPT_ETOOSLOW */
 
 /* Opaque structure. */
 struct scryptdec_file_cookie;
@@ -97,9 +97,12 @@ struct scryptdec_file_cookie;
  * scryptenc_buf(inbuf, inbuflen, outbuf, passwd, passwdlen,
  *     params, verbose, force):
  * Encrypt ${inbuflen} bytes from ${inbuf}, writing the resulting
- * ${inbuflen} + 128 bytes to ${outbuf}.  The explicit parameters
- * within ${params} must be zero or must all be non-zero.  Return
- * the explicit parameters used via ${params}.
+ * ${inbuflen} + 128 bytes to ${outbuf}.  If ${force} is 1, do not check
+ * whether decryption will exceed the estimated available memory or time.
+ * The explicit parameters within ${params} must be zero or must all be
+ * non-zero.  If explicit parameters are used and the computation is estimated
+ * to exceed resource limits, print a warning instead of returning an error.
+ * Return the explicit parameters used via ${params}.
  */
 int scryptenc_buf(const uint8_t *, size_t, uint8_t *,
     const uint8_t *, size_t, struct scryptenc_params *, int, int);
@@ -120,8 +123,12 @@ int scryptdec_buf(const uint8_t *, size_t, uint8_t *, size_t *,
 /**
  * scryptenc_file(infile, outfile, passwd, passwdlen, params, verbose, force):
  * Read a stream from ${infile} and encrypt it, writing the resulting stream
- * to ${outfile}.  The explicit parameters within ${params} must be zero
- * or must all be non-zero.  Return the explicit parameters used via ${params}.
+ * to ${outfile}.  If ${force} is 1, do not check whether decryption will
+ * exceed the estimated available memory or time.  The explicit parameters
+ * within ${params} must be zero or must all be non-zero.  If explicit
+ * parameters are used and the computation is estimated to exceed resource
+ * limits, print a warning instead of returning an error.  Return the explicit
+ * parameters used via ${params}.
  */
 int scryptenc_file(FILE *, FILE *, const uint8_t *, size_t,
     struct scryptenc_params *, int, int);
@@ -147,9 +154,10 @@ int scryptdec_file(FILE *, FILE *, const uint8_t *, size_t,
  * scryptdec_file_prep(infile, passwd, passwdlen, params, force, cookie):
  * Prepare to decrypt ${infile}, including checking the passphrase.  Allocate
  * a cookie at ${cookie}.  After calling this function, ${infile} should not
- * be modified until the decryption is completed by scryptdec_file_copy.  The
- * explicit parameters within ${params} must be zero.  Return the explicit
- * parameters to be used via ${params}.
+ * be modified until the decryption is completed by scryptdec_file_copy().
+ * If ${force} is 1, do not check whether decryption will exceed the estimated
+ * available memory or time.  The explicit parameters within ${params} must be
+ * zero.  Return the explicit parameters to be used via ${params}.
  */
 int scryptdec_file_prep(FILE *, const uint8_t *, size_t,
     struct scryptenc_params *, int, int, struct scryptdec_file_cookie **);
@@ -157,9 +165,9 @@ int scryptdec_file_prep(FILE *, const uint8_t *, size_t,
 /**
  * scryptdec_file_copy(cookie, outfile):
  * Read a stream from the file that was passed into the ${cookie} by
- * scryptdec_file_prep, decrypt it, and write the resulting stream to
+ * scryptdec_file_prep(), decrypt it, and write the resulting stream to
  * ${outfile}.  After this function completes, it is safe to modify/close
- * ${outfile} and the ${infile} which was given to scryptdec_file_prep.
+ * ${outfile} and the ${infile} which was given to scryptdec_file_prep().
  */
 int scryptdec_file_copy(struct scryptdec_file_cookie *, FILE *);
 
@@ -169,4 +177,4 @@ int scryptdec_file_copy(struct scryptdec_file_cookie *, FILE *);
  */
 void scryptdec_file_cookie_free(struct scryptdec_file_cookie *);
 
-#endif /* !_SCRYPTENC_H_ */
+#endif /* !SCRYPTENC_H_ */

@@ -2,7 +2,7 @@
 
 ### Find script directory and load helper functions.
 scriptdir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-. ${scriptdir}/shared_test_functions.sh
+. "${scriptdir}/shared_test_functions.sh"
 
 
 ### Project-specific constants and setup
@@ -18,4 +18,4 @@ system_scrypt=$( find_system scrypt "enc -P" )
 
 
 ### Run tests using project-specific constants
-run_scenarios ${scriptdir}/??-*.sh
+run_scenarios

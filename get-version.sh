@@ -1,6 +1,6 @@
 #!/bin/sh
 
-version=1.3.0-head
+version=1.3.2-head
 
 # This script outputs a version number for this project to stdout.
 # - if $SCRYPT_VERSION is given, it is used.
@@ -12,7 +12,7 @@ version=1.3.0-head
 # Use $SCRYPT_VERSION if it exists.
 if [ -n "${SCRYPT_VERSION}" ]; then
 	# Do not use \n; that confuses autoconf.
-	printf "${SCRYPT_VERSION}"
+	printf "%s" "${SCRYPT_VERSION}"
 	exit 0
 fi
 
@@ -21,7 +21,7 @@ if git rev-parse 2>/dev/null; then
 	# Get a version string from the latest git tag.
 	if version_git=$( git describe --tags --match '[[:digit:]].*' ) \
 	    2>/dev/null ; then
-		version_decapitated=$( echo ${version} | sed "s/-head//" )
+		version_decapitated=$( echo "${version}" | sed "s/-head//" )
 		# Check that the beginning of this tag matches the version.
 		case ${version_git} in
 		"${version_decapitated}"*)
@@ -35,4 +35,4 @@ if git rev-parse 2>/dev/null; then
 fi
 
 # Output the version to stdout.  Do not use \n; that confuses autoconf.
-printf ${version}
+printf "%s" "${version}"

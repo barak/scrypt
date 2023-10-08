@@ -1,5 +1,5 @@
-#ifndef _PARSENUM_H_
-#define _PARSENUM_H_
+#ifndef PARSENUM_H_
+#define PARSENUM_H_
 
 #include <assert.h>
 #include <errno.h>
@@ -130,10 +130,12 @@ _Pragma("clang diagnostic pop")
 	)
 
 /* Magic to select which version of PARSENUM_EX to use. */
-#define PARSENUM_EX(...)	PARSENUM_EX_(PARSENUM_EX_COUNT(__VA_ARGS__))(__VA_ARGS__, "PARSENUM_EX")
+#define PARSENUM_EX(...)						\
+    PARSENUM_EX_(PARSENUM_EX_COUNT(__VA_ARGS__))(__VA_ARGS__, "PARSENUM_EX")
 #define PARSENUM_EX_(N)	PARSENUM_EX__(N)
 #define PARSENUM_EX__(N)	PARSENUM_EX ## N
-#define PARSENUM_EX_COUNT(...)	PARSENUM_EX_COUNT_(__VA_ARGS__, 6, 5, 4, 3, 2, 1)
+#define PARSENUM_EX_COUNT(...)						\
+    PARSENUM_EX_COUNT_(__VA_ARGS__, 6, 5, 4, 3, 2, 1)
 #define PARSENUM_EX_COUNT_(_1, _2, _3, _4, _5, _6, N, ...)	N
 
 /* Functions for performing the parsing and parameter checking. */
@@ -192,4 +194,4 @@ parsenum_unsigned(const char * s, uintmax_t min, uintmax_t max,
 	return (val);
 }
 
-#endif /* !_PARSENUM_H_ */
+#endif /* !PARSENUM_H_ */

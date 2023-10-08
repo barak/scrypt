@@ -36,7 +36,6 @@ Some additional articles may be of interest:
 * Filippo Valsorda presented a very well-written explanation about how
   [the scrypt parameters](https://blog.filippo.io/the-scrypt-parameters/)
   impact the memory usage and CPU time of the algorithm.
-
 * J. Alwen, B. Chen, K. Pietrzak, L. Reyzin, S. Tessaro,
   [Scrypt is Maximally Memory-Hard](https://eprint.iacr.org/2016/989),
   Cryptology ePrint Archive: Report 2016/989.
@@ -46,11 +45,15 @@ The scrypt encryption utility
 -----------------------------
 
 A simple password-based encryption utility is available as a demonstration of
-the `scrypt` key derivation function.  It can be invoked as `scrypt enc infile
-[outfile]` to encrypt data (if `outfile` is not specified, the encrypted data
-is written to the standard output), or as `scrypt dec infile [outfile]` to
-decrypt data (if outfile is not specified, the decrypted data is written to the
-standard output). `scrypt` also supports three command-line options:
+the `scrypt` key derivation function.  It can be invoked as:
+
+* `scrypt enc [options] infile [outfile]` to encrypt data,
+* `scrypt dec [options] infile [outfile]` to decrypt data, or
+* `scrypt info infile` to see the encryption parameters used, and the memory
+  required to decrypt the encrypted file.
+
+If `[outfile]` is not specified, the output is written to standard output.
+`scrypt` also supports a number of command-line `[options]`:
 
 * `-t maxtime` will instruct `scrypt` to spend at most maxtime seconds
   computing the derived encryption key from the password; for encryption, this
@@ -64,6 +67,10 @@ standard output). `scrypt` also supports three command-line options:
   upper limit and may `cause` scrypt to exit with an error.
 * `-M maxmem` instructs `scrypt` to use at most the specified number of bytes
   of RAM when computing the derived encryption key.
+* `--logN value1`, `-r value2`, `-p value3` will set the encryption parameters
+  explicitly.
+* `--passphrase method:arg` allows the user to specify whether to read the
+  passphrase from stdin, /dev/tty, an environment variable, or a file.
 
 If the encrypted data is corrupt, `scrypt dec` will exit with a non-zero
 status.  However, **`scrypt dec` may produce output before it determines that
@@ -71,37 +78,17 @@ the encrypted data was corrupt**, so for applications which require data to be
 authenticated, you must store the output of `scrypt dec` in a temporary
 location and check `scrypt`'s exit code before using the decrypted data.
 
-The `scrypt` utility has been tested on FreeBSD, NetBSD, OpenBSD, Linux
-(Slackware, CentOS, Gentoo, Ubuntu), Solaris, OS X, Cygwin, and GNU Hurd.
-
-* [scrypt version 1.3.1 source tarball](
-  https://www.tarsnap.com/scrypt/scrypt-1.3.1.tgz)
-* [GPG-signed SHA256 for scrypt version 1.3.1](
-  https://www.tarsnap.com/scrypt/scrypt-sigs-1.3.1.asc) (signature
-  generated using Tarsnap [code signing key](
-  https://www.tarsnap.com/tarsnap-signing-key.asc))
-
-  This cleartext signature of the SHA256 output can be verified with:
-
-      gpg --decrypt scrypt-sigs-1.3.1.asc
-
-  You may then compare the displayed hash to the SHA256 hash of
-  `scrypt-1.3.1.gz`.
-
-In addition, `scrypt` is available in the OpenBSD and FreeBSD ports trees and
-in NetBSD pkgsrc as `security/scrypt`.
-
 
 Using scrypt as a KDF
 ---------------------
 
 To use scrypt as a [key derivation function](
-https://en.wikipedia.org/wiki/Key_derivation_function) (KDF), take a look at
-the `lib/crypto/crypto_scrypt.h` header, which provides:
+https://en.wikipedia.org/wiki/Key_derivation_function) (KDF) with
+`libscrypt-kdf`, include `scrypt-kdf.h` and use:
 
 ```
 /**
- * crypto_scrypt(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
+ * scrypt_kdf(passwd, passwdlen, salt, saltlen, N, r, p, buf, buflen):
  * Compute scrypt(passwd[0 .. passwdlen - 1], salt[0 .. saltlen - 1], N, r,
  * p, buflen) and write the result into buf.  The parameters r, p, and buflen
  * must satisfy r * p < 2^30 and buflen <= (2^32 - 1) * 32.  The parameter N
@@ -109,13 +96,13 @@ the `lib/crypto/crypto_scrypt.h` header, which provides:
  *
  * Return 0 on success; or -1 on error.
  */
-int crypto_scrypt(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
+int scrypt_kdf(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
     uint32_t, uint32_t, uint8_t *, size_t);
 ```
 
-The same function is provided in the optional `libscrypt-kdf` library; there
-is a sample of using it in `tests/libscrypt-kdf`.  If you installed the
-library, you can compile that file and run the binary:
+There is a sample of using this function in `tests/libscrypt-kdf`.
+If you installed the library, you can compile that file and run
+the binary:
 
 ```
 $ cd tests/libscrypt-kdf/
@@ -123,6 +110,34 @@ $ c99 sample-libscrypt-kdf.c -lscrypt-kdf
 $ ./a.out
 crypto_scrypt(): success
 ```
+
+If you would rather copy our source files directly into your
+project, then take a look at the `lib/crypto/crypto_scrypt.h`
+header, which provides `crypto_scrypt()`.
+
+
+Official releases
+-----------------
+
+The `scrypt` utility has been tested on FreeBSD, NetBSD, OpenBSD, Linux
+(Slackware, CentOS, Gentoo, Ubuntu), Solaris, OS X, Cygwin, and GNU Hurd.
+
+* [scrypt version 1.3.2 source tarball](
+  https://www.tarsnap.com/scrypt/scrypt-1.3.2.tgz)
+* [GPG-signed SHA256 for scrypt version 1.3.2](
+  https://www.tarsnap.com/scrypt/scrypt-sigs-1.3.2.asc) (signature
+  generated using Tarsnap [code signing key](
+  https://www.tarsnap.com/tarsnap-signing-key.asc))
+
+  This cleartext signature of the SHA256 output can be verified with:
+
+      gpg --decrypt scrypt-sigs-1.3.2.asc
+
+  You may then compare the displayed hash to the SHA256 hash of
+  `scrypt-1.3.2.tgz`.
+
+In addition, `scrypt` is available in the OpenBSD and FreeBSD ports trees and
+in NetBSD pkgsrc as `security/scrypt`.
 
 
 Building
@@ -132,7 +147,7 @@ Building
 official release tarball on https://www.tarsnap.com/scrypt.html
 
 To build scrypt, extract the tarball and run `./configure` && `make`.  See the
-`BUILDING` file for more details (e.g., dealing with OpenSSL on OSX).
+[BUILDING](BUILDING) file for more details (e.g., dealing with OpenSSL on OSX).
 
 
 Testing
@@ -141,6 +156,10 @@ Testing
 A small test suite can be run with:
 
     make test
+
+On platforms with less than 1 GB of RAM, use:
+
+    make test SMALLMEM=1
 
 Memory-testing normal operations with valgrind (takes approximately 4 times as
 long as no valgrind tests) can be enabled with:

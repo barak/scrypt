@@ -73,7 +73,7 @@ display_params(int logN, uint32_t r, uint32_t p, size_t memlimit,
 {
 	uint64_t N = (uint64_t)(1) << logN;
 	uint64_t mem_minimum = 128 * r * N;
-	double expected_seconds = opps > 0 ? (double)(4 * N * p) / opps : 0;
+	double expected_seconds = opps > 0 ? (double)(4 * N * r * p) / opps : 0;
 	char * human_memlimit = humansize(memlimit);
 	char * human_mem_minimum = humansize(mem_minimum);
 
@@ -83,7 +83,7 @@ display_params(int logN, uint32_t r, uint32_t p, size_t memlimit,
 
 	/* Memory */
 	fprintf(stderr, "    Decrypting this file requires at least"
-	    " %s bytes of memory", human_mem_minimum);
+	    " %s of memory", human_mem_minimum);
 	if (memlimit > 0)
 		fprintf(stderr, " (%s available)", human_memlimit);
 
@@ -114,7 +114,7 @@ pickparams(size_t maxmem, double maxmemfrac, double maxtime,
 		return (SCRYPT_ELIMIT);
 
 	/* Figure out how fast the CPU is. */
-	if ((rc = scryptenc_cpuperf(&opps)) != 0)
+	if ((rc = scryptenc_cpuperf(&opps)) != SCRYPT_OK)
 		return (rc);
 	opslimit = opps * maxtime;
 
@@ -197,12 +197,18 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 			return (SCRYPT_ELIMIT);
 
 		/* Figure out how fast the CPU is. */
-		if ((rc = scryptenc_cpuperf(&opps)) != 0)
+		if ((rc = scryptenc_cpuperf(&opps)) != SCRYPT_OK)
 			return (rc);
 		opslimit = opps * maxtime;
 
+		if (verbose)
+			display_params(logN, r, p, memlimit, opps, maxtime);
+
 		/* Check limits. */
 		N = (uint64_t)(1) << logN;
+		if (((memlimit / N) / r < 128) &&
+		    (((opslimit / (double)N) / r) / p < 4))
+			return (SCRYPT_EBIGSLOW);
 		if ((memlimit / N) / r < 128)
 			return (SCRYPT_ETOOBIG);
 		if (((opslimit / (double)N) / r) / p < 4)
@@ -211,10 +217,10 @@ checkparams(size_t maxmem, double maxmemfrac, double maxtime,
 		/* We have no limit. */
 		memlimit = 0;
 		opps = 0;
-	}
 
-	if (verbose)
-		display_params(logN, r, p, memlimit, opps, maxtime);
+		if (verbose)
+			display_params(logN, r, p, memlimit, opps, maxtime);
+	}
 
 	/* Success! */
 	return (SCRYPT_OK);
@@ -243,16 +249,15 @@ scryptenc_setup(uint8_t header[96], uint8_t dk[64],
 		if ((rc = checkparams(P->maxmem, P->maxmemfrac, P->maxtime,
 		    P->logN, P->r, P->p, verbose, force)) != 0) {
 			/* Warn about resource limit, but suppress the error. */
-			if (rc == SCRYPT_ETOOBIG) {
+			if ((rc == SCRYPT_ETOOBIG) || (rc == SCRYPT_EBIGSLOW))
 				warn0("Warning: Explicit parameters"
 				    " might exceed memory limit");
-				rc = 0;
-			}
-			if (rc == SCRYPT_ETOOSLOW) {
+			if ((rc == SCRYPT_ETOOSLOW) || (rc == SCRYPT_EBIGSLOW))
 				warn0("Warning: Explicit parameters"
 				    " might exceed time limit");
+			if ((rc == SCRYPT_ETOOBIG) || (rc == SCRYPT_ETOOSLOW) ||
+			    (rc == SCRYPT_EBIGSLOW))
 				rc = 0;
-			}
 
 			/* Provide a more meaningful error message. */
 			if (rc == SCRYPT_EINVAL)
@@ -268,10 +273,12 @@ scryptenc_setup(uint8_t header[96], uint8_t dk[64],
 		    &P->logN, &P->r, &P->p, verbose)) != 0)
 			return (rc);
 	}
-	N = (uint64_t)(1) << P->logN;
 
 	/* Sanity check. */
-	assert((P->logN > 0) && (P->logN < 256));
+	assert((P->logN > 0) && (P->logN < 64));
+
+	/* Set N. */
+	N = (uint64_t)(1) << P->logN;
 
 	/* Get some salt. */
 	if (crypto_entropy_read(salt, 32))
@@ -398,9 +405,12 @@ scryptdec_setup(const uint8_t header[96], uint8_t dk[64],
  * scryptenc_buf(inbuf, inbuflen, outbuf, passwd, passwdlen,
  *     params, verbose, force):
  * Encrypt ${inbuflen} bytes from ${inbuf}, writing the resulting
- * ${inbuflen} + 128 bytes to ${outbuf}.  The explicit parameters
- * within ${params} must be zero or must all be non-zero.  Return
- * the explicit parameters used via ${params}.
+ * ${inbuflen} + 128 bytes to ${outbuf}.  If ${force} is 1, do not check
+ * whether decryption will exceed the estimated available memory or time.
+ * The explicit parameters within ${params} must be zero or must all be
+ * non-zero.  If explicit parameters are used and the computation is estimated
+ * to exceed resource limits, print a warning instead of returning an error.
+ * Return the explicit parameters used via ${params}.
  */
 int
 scryptenc_buf(const uint8_t * inbuf, size_t inbuflen, uint8_t * outbuf,
@@ -556,8 +566,12 @@ err0:
 /**
  * scryptenc_file(infile, outfile, passwd, passwdlen, params, verbose, force):
  * Read a stream from ${infile} and encrypt it, writing the resulting stream
- * to ${outfile}.  The explicit parameters within ${params} must be zero
- * or must all be non-zero.  Return the explicit parameters used via ${params}.
+ * to ${outfile}.  If ${force} is 1, do not check whether decryption will
+ * exceed the estimated available memory or time.  The explicit parameters
+ * within ${params} must be zero or must all be non-zero.  If explicit
+ * parameters are used and the computation is estimated to exceed resource
+ * limits, print a warning instead of returning an error.  Return the explicit
+ * parameters used via ${params}.
  */
 int
 scryptenc_file(FILE * infile, FILE * outfile,
@@ -723,9 +737,10 @@ err0:
  * scryptdec_file_prep(infile, passwd, passwdlen, params, force, cookie):
  * Prepare to decrypt ${infile}, including checking the passphrase.  Allocate
  * a cookie at ${cookie}.  After calling this function, ${infile} should not
- * be modified until the decryption is completed by scryptdec_file_copy.  The
- * explicit parameters within ${params} must be zero.  Return the explicit
- * parameters to be used via ${params}.
+ * be modified until the decryption is completed by scryptdec_file_copy().
+ * If ${force} is 1, do not check whether decryption will exceed the estimated
+ * available memory or time.  The explicit parameters within ${params} must be
+ * zero.  Return the explicit parameters to be used via ${params}.
  */
 int
 scryptdec_file_prep(FILE * infile, const uint8_t * passwd,
@@ -768,9 +783,9 @@ err1:
 /**
  * scryptdec_file_copy(cookie, outfile):
  * Read a stream from the file that was passed into the ${cookie} by
- * scryptdec_file_prep, decrypt it, and write the resulting stream to
+ * scryptdec_file_prep(), decrypt it, and write the resulting stream to
  * ${outfile}.  After this function completes, it is safe to modify/close
- * ${outfile} and the ${infile} which was given to scryptdec_file_prep.
+ * ${outfile} and the ${infile} which was given to scryptdec_file_prep().
  */
 int
 scryptdec_file_copy(struct scryptdec_file_cookie * C, FILE * outfile)

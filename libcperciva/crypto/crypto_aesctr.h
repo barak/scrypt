@@ -1,5 +1,5 @@
-#ifndef _CRYPTO_AESCTR_H_
-#define _CRYPTO_AESCTR_H_
+#ifndef CRYPTO_AESCTR_H_
+#define CRYPTO_AESCTR_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -12,9 +12,25 @@ struct crypto_aesctr;
  * crypto_aesctr_init(key, nonce):
  * Prepare to encrypt/decrypt data with AES in CTR mode, using the provided
  * expanded ${key} and ${nonce}.  The key provided must remain valid for the
- * lifetime of the stream.
+ * lifetime of the stream.  This is the same as calling _alloc() followed by
+ * _init2().
  */
 struct crypto_aesctr * crypto_aesctr_init(const struct crypto_aes_key *,
+    uint64_t);
+
+/**
+ * crypto_aesctr_alloc(void):
+ * Allocate an object for performing AES in CTR code.  This must be followed
+ * by calling _init2().
+ */
+struct crypto_aesctr * crypto_aesctr_alloc(void);
+
+/**
+ * crypto_aesctr_init2(stream, key, nonce):
+ * Reset the AES-CTR stream ${stream}, using the ${key} and ${nonce}.  If ${key}
+ * is NULL, retain the previous AES key.
+ */
+void crypto_aesctr_init2(struct crypto_aesctr *, const struct crypto_aes_key *,
     uint64_t);
 
 /**
@@ -39,4 +55,4 @@ void crypto_aesctr_free(struct crypto_aesctr *);
 void crypto_aesctr_buf(const struct crypto_aes_key *, uint64_t,
     const uint8_t *, uint8_t *, size_t);
 
-#endif /* !_CRYPTO_AESCTR_H_ */
+#endif /* !CRYPTO_AESCTR_H_ */

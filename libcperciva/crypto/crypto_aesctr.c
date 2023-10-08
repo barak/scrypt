@@ -1,27 +1,86 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "cpusupport.h"
 #include "crypto_aes.h"
+#include "crypto_aesctr_aesni.h"
+#include "crypto_aesctr_arm.h"
 #include "insecure_memzero.h"
 #include "sysendian.h"
 
 #include "crypto_aesctr.h"
 
-struct crypto_aesctr {
-	const struct crypto_aes_key * key;
-	uint64_t nonce;
-	uint64_t bytectr;
-	uint8_t buf[16];
-};
+/**
+ * In order to optimize AES-CTR, it is desirable to separate out the handling
+ * of individual bytes of data vs. the handling of complete (16 byte) blocks.
+ * The handling of blocks in turn can be optimized further using CPU
+ * intrinsics, e.g. SSE2 on x86 CPUs; however while the byte-at-once code
+ * remains the same across platforms it should be inlined into the same (CPU
+ * feature specific) routines for performance reasons.
+ *
+ * In order to allow those generic functions to be inlined into multiple
+ * functions in separate translation units, we place them into a "shared" C
+ * file which is included in each of the platform-specific variants.
+ */
+#include "crypto_aesctr_shared.c"
+
+#if defined(CPUSUPPORT_X86_AESNI) || defined(CPUSUPPORT_ARM_AES)
+#define HWACCEL
+
+static enum {
+	HW_SOFTWARE = 0,
+#if defined(CPUSUPPORT_X86_AESNI)
+	HW_X86_AESNI,
+#endif
+#if defined(CPUSUPPORT_ARM_AES)
+	HW_ARM_AES,
+#endif
+	HW_UNSET
+} hwaccel = HW_UNSET;
+#endif
+
+#ifdef HWACCEL
+/* Which type of hardware acceleration should we use, if any? */
+static void
+hwaccel_init(void)
+{
+
+	/* If we've already set hwaccel, we're finished. */
+	if (hwaccel != HW_UNSET)
+		return;
+
+	/* Default to software. */
+	hwaccel = HW_SOFTWARE;
+
+	/* Can we use AESNI? */
+	switch (crypto_aes_can_use_intrinsics()) {
+#ifdef CPUSUPPORT_X86_AESNI
+	case 1:
+		hwaccel = HW_X86_AESNI;
+		break;
+#endif
+#ifdef CPUSUPPORT_ARM_AES
+	case 2:
+		hwaccel = HW_ARM_AES;
+		break;
+#endif
+	case 0:
+		break;
+	default:
+		/* Should never happen. */
+		assert(0);
+	}
+}
+#endif /* HWACCEL */
 
 /**
- * crypto_aesctr_init(key, nonce):
- * Prepare to encrypt/decrypt data with AES in CTR mode, using the provided
- * expanded ${key} and ${nonce}.  The key provided must remain valid for the
- * lifetime of the stream.
+ * crypto_aesctr_alloc(void):
+ * Allocate an object for performing AES in CTR code.  This must be followed
+ * by calling _init2().
  */
 struct crypto_aesctr *
-crypto_aesctr_init(const struct crypto_aes_key * key, uint64_t nonce)
+crypto_aesctr_alloc(void)
 {
 	struct crypto_aesctr * stream;
 
@@ -29,10 +88,67 @@ crypto_aesctr_init(const struct crypto_aes_key * key, uint64_t nonce)
 	if ((stream = malloc(sizeof(struct crypto_aesctr))) == NULL)
 		goto err0;
 
-	/* Initialize values. */
-	stream->key = key;
-	stream->nonce = nonce;
+	/* Success! */
+	return (stream);
+
+err0:
+	/* Failure! */
+	return (NULL);
+}
+
+/**
+ * crypto_aesctr_init2(stream, key, nonce):
+ * Reset the AES-CTR stream ${stream}, using the ${key} and ${nonce}.  If ${key}
+ * is NULL, retain the previous AES key.
+ */
+void
+crypto_aesctr_init2(struct crypto_aesctr * stream,
+    const struct crypto_aes_key * key, uint64_t nonce)
+{
+
+	/* If the key is NULL, retain the previous AES key. */
+	if (key != NULL)
+		stream->key = key;
+
+	/* Set nonce as provided and reset bytectr. */
+	be64enc(stream->pblk, nonce);
 	stream->bytectr = 0;
+
+	/*
+	 * Set the counter such that the least significant byte will wrap once
+	 * incremented.
+	 */
+	stream->pblk[15] = 0xff;
+
+#ifdef HWACCEL
+	hwaccel_init();
+#endif
+
+	/* Sanity check. */
+	assert(stream->key != NULL);
+}
+
+/**
+ * crypto_aesctr_init(key, nonce):
+ * Prepare to encrypt/decrypt data with AES in CTR mode, using the provided
+ * expanded ${key} and ${nonce}.  The key provided must remain valid for the
+ * lifetime of the stream.  This is the same as calling _alloc() followed by
+ * _init2().
+ */
+struct crypto_aesctr *
+crypto_aesctr_init(const struct crypto_aes_key * key, uint64_t nonce)
+{
+	struct crypto_aesctr * stream;
+
+	/* Sanity check. */
+	assert(key != NULL);
+
+	/* Allocate memory. */
+	if ((stream = crypto_aesctr_alloc()) == NULL)
+		goto err0;
+
+	/* Initialize values. */
+	crypto_aesctr_init2(stream, key, nonce);
 
 	/* Success! */
 	return (stream);
@@ -52,28 +168,39 @@ void
 crypto_aesctr_stream(struct crypto_aesctr * stream, const uint8_t * inbuf,
     uint8_t * outbuf, size_t buflen)
 {
-	uint8_t pblk[16];
-	size_t pos;
-	int bytemod;
 
-	for (pos = 0; pos < buflen; pos++) {
-		/* How far through the buffer are we? */
-		bytemod = stream->bytectr % 16;
-
-		/* Generate a block of cipherstream if needed. */
-		if (bytemod == 0) {
-			be64enc(pblk, stream->nonce);
-			be64enc(pblk + 8, stream->bytectr / 16);
-			crypto_aes_encrypt_block(pblk, stream->buf,
-			    stream->key);
-		}
-
-		/* Encrypt a byte. */
-		outbuf[pos] = inbuf[pos] ^ stream->buf[bytemod];
-
-		/* Move to the next byte of cipherstream. */
-		stream->bytectr += 1;
+#if defined(HWACCEL)
+#if defined(CPUSUPPORT_X86_AESNI)
+	if ((buflen >= 16) && (hwaccel == HW_X86_AESNI)) {
+		crypto_aesctr_aesni_stream(stream, inbuf, outbuf, buflen);
+		return;
 	}
+#endif
+#if defined(CPUSUPPORT_ARM_AES)
+	if ((buflen >= 16) && (hwaccel == HW_ARM_AES)) {
+		crypto_aesctr_arm_stream(stream, inbuf, outbuf, buflen);
+		return;
+	}
+#endif
+#endif /* HWACCEL */
+
+	/* Process any bytes before we can process a whole block. */
+	if (crypto_aesctr_stream_pre_wholeblock(stream, &inbuf, &outbuf,
+	    &buflen))
+		return;
+
+	/* Process whole blocks of 16 bytes. */
+	while (buflen >= 16) {
+		/* Generate a block of cipherstream. */
+		crypto_aesctr_stream_cipherblock_generate(stream);
+
+		/* Encrypt the bytes and update the positions. */
+		crypto_aesctr_stream_cipherblock_use(stream, &inbuf, &outbuf,
+		    &buflen, 16, 0);
+	}
+
+	/* Process any final bytes after finishing all whole blocks. */
+	crypto_aesctr_stream_post_wholeblock(stream, &inbuf, &outbuf, &buflen);
 }
 
 /**
@@ -106,10 +233,11 @@ crypto_aesctr_buf(const struct crypto_aes_key * key, uint64_t nonce,
 	struct crypto_aesctr stream_rec;
 	struct crypto_aesctr * stream = &stream_rec;
 
+	/* Sanity check. */
+	assert(key != NULL);
+
 	/* Initialize values. */
-	stream->key = key;
-	stream->nonce = nonce;
-	stream->bytectr = 0;
+	crypto_aesctr_init2(stream, key, nonce);
 
 	/* Perform the encryption. */
 	crypto_aesctr_stream(stream, inbuf, outbuf, buflen);
