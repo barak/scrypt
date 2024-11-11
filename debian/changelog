@@ -1,4 +1,4 @@
-scrypt (1.3.2-2) UNRELEASED; urgency=medium
+scrypt (1.3.2-2) unstable; urgency=medium
 
   * bump policy
   * debian/clean entry for tests-output/ which otherwise breaks
