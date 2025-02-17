@@ -61,7 +61,7 @@ If `[outfile]` is not specified, the output is written to standard output.
   this value is used as an upper limit (if `scrypt` detects that it would take
   too long to decrypt the data, it will exit with an error message).
 * `-m maxmemfrac` instructs `scrypt` to use at most the specified fraction of
-  the available RAM for computing the derived encryption key. For encryption,
+  the available RAM for computing the derived encryption key.  For encryption,
   increasing this value might increase the security of the encrypted data,
   depending on the `maxtime` value; for decryption, this value is used as an
   upper limit and may `cause` scrypt to exit with an error.
@@ -122,19 +122,19 @@ Official releases
 The `scrypt` utility has been tested on FreeBSD, NetBSD, OpenBSD, Linux
 (Slackware, CentOS, Gentoo, Ubuntu), Solaris, OS X, Cygwin, and GNU Hurd.
 
-* [scrypt version 1.3.2 source tarball](
-  https://www.tarsnap.com/scrypt/scrypt-1.3.2.tgz)
-* [GPG-signed SHA256 for scrypt version 1.3.2](
-  https://www.tarsnap.com/scrypt/scrypt-sigs-1.3.2.asc) (signature
+* [scrypt version 1.3.3 source tarball](
+  https://www.tarsnap.com/scrypt/scrypt-1.3.3.tgz)
+* [GPG-signed SHA256 for scrypt version 1.3.3](
+  https://www.tarsnap.com/scrypt/scrypt-sigs-1.3.3.asc) (signature
   generated using Tarsnap [code signing key](
   https://www.tarsnap.com/tarsnap-signing-key.asc))
 
   This cleartext signature of the SHA256 output can be verified with:
 
-      gpg --decrypt scrypt-sigs-1.3.2.asc
+      gpg --decrypt scrypt-sigs-1.3.3.asc
 
   You may then compare the displayed hash to the SHA256 hash of
-  `scrypt-1.3.2.tgz`.
+  `scrypt-1.3.3.tgz`.
 
 In addition, `scrypt` is available in the OpenBSD and FreeBSD ports trees and
 in NetBSD pkgsrc as `security/scrypt`.

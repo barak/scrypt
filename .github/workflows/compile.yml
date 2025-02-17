@@ -24,8 +24,8 @@ env:
   CFLAGS_CLANG_PROJECT: -Wno-reserved-id-macro
   CFLAGS_GCC_PROJECT: -Wno-cpp
   CFLAGS_OSX: -Wno-poison-system-directories
-              -I/usr/local/opt/openssl@1.1/include
-  LDFLAGS_OSX: -L/usr/local/opt/openssl@1.1/lib
+              -Wno-deprecated-declarations
+  LDFLAGS_OSX:
 
 jobs:
   Ubuntu:
@@ -38,7 +38,7 @@ jobs:
       run: sudo apt-get install --no-install-recommends
            valgrind autoconf-archive
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Run autoreconf
       run:
         autoreconf -i
@@ -84,10 +84,10 @@ jobs:
       run: test -z "$(git status --porcelain=v1)"
   macOS:
     name: macOS
-    runs-on: macOS-11
+    runs-on: macOS-13
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Install software
       run: brew install automake
     - name: Run autoreconf

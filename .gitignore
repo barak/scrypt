@@ -10,6 +10,7 @@
 /configure~
 # m4/ directory: only keep certain files
 /m4/*
+!/m4/check_darwin_paths.m4
 !/m4/check_disable_compiler_warnings.m4
 !/m4/check_libcperciva_posix.m4
 !/m4/check_memlimit_support.m4
@@ -26,6 +27,7 @@
 /libtool
 /stamp-h1
 # In-tree build, only top-level
+/apisupport-config.h
 /cpusupport-config.h
 # In-tree build, all directories
 .dirstamp
