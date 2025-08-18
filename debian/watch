@@ -1,5 +1,5 @@
-version=4
-https://www.tarsnap.com/@PACKAGE@.html @PACKAGE@/@PACKAGE@@ANY_VERSION@@ARCHIVE_EXT@
+Version: 5
+Source: https://www.tarsnap.com/@PACKAGE@.html
 
 # Signature looks like:
 #  scrypt/scrypt-sigs-1.1.6.asc
